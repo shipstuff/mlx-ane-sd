@@ -37,11 +37,12 @@ from dflash_ane import _rope_inv_freq
 from dflash_torch import DFlashConfig
 
 
-STATE_LENGTH = 256
+STATE_LENGTH = 256  # default; override via --state-length
 
 
 class DFlashANEAccumDraft:
-    def __init__(self, mlmodelc_path: str, config: DFlashConfig):
+    def __init__(self, mlmodelc_path: str, config: DFlashConfig,
+                 state_length: int = STATE_LENGTH):
         print(f"[ane-draft] loading {mlmodelc_path}...")
         t0 = time.perf_counter()
         self.model = ct.models.CompiledMLModel(str(mlmodelc_path),
@@ -51,7 +52,7 @@ class DFlashANEAccumDraft:
         self.ctx_size = config.block_size
         self.block_size = config.block_size
         self.head_dim = config.head_dim
-        self.state_length = STATE_LENGTH
+        self.state_length = state_length
         self.T = self.ctx_size + self.block_size   # 32
         self.attend_len = self.state_length + self.T  # 288
         self.N = config.num_hidden_layers
@@ -280,6 +281,7 @@ def main():
     ap.add_argument("--mlmodelc",
                     default="/tmp/dflash_ane_accum_c/dflash_ane_accum.mlmodelc")
     ap.add_argument("--max-new", type=int, default=100)
+    ap.add_argument("--state-length", type=int, default=STATE_LENGTH)
     args = ap.parse_args()
 
     from huggingface_hub import snapshot_download
@@ -288,7 +290,7 @@ def main():
     print("[load] target...")
     target, tok = mlx_load("mlx-community/Qwen3-4B-bf16")
     print("[load] draft...")
-    draft = DFlashANEAccumDraft(args.mlmodelc, config)
+    draft = DFlashANEAccumDraft(args.mlmodelc, config, state_length=args.state_length)
 
     print("[warmup]...")
     list(stream_generate_ane_accum(target, draft, tok, "The weather", 20))
