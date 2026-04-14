@@ -94,7 +94,7 @@ def main():
         outputs=outputs,
         compute_units=ct.ComputeUnit.CPU_AND_NE,
         compute_precision=ct.precision.FLOAT16,
-        minimum_deployment_target=ct.target.macOS14,
+        minimum_deployment_target=ct.target.macOS15,  # iOS18 for per_grouped_channel LUT
         convert_to="mlprogram",
     )
     print(f"[convert] done in {time.perf_counter()-t0:.1f}s")

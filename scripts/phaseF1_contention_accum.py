@@ -47,6 +47,7 @@ def main():
     ap.add_argument("--mlmodelc",
                     default="/tmp/dflash_ane_accum_c/dflash_ane_accum.mlmodelc")
     ap.add_argument("--max-new", type=int, default=100)
+    ap.add_argument("--state-length", type=int, default=256)
     ap.add_argument("--bg-model", default="mlx-community/gemma-3-270m-it-bf16")
     args = ap.parse_args()
 
@@ -74,7 +75,7 @@ def main():
         print("[load] target...")
         target, tok = mlx_load("mlx-community/Qwen3-4B-bf16")
         print("[load] draft (ANE accum)...")
-        draft = DFlashANEAccumDraft(args.mlmodelc, config)
+        draft = DFlashANEAccumDraft(args.mlmodelc, config, state_length=args.state_length)
         print("[warmup]...")
         list(stream_generate_ane_accum(target, draft, tok, "The weather", 20))
 
