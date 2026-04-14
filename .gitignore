@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.DS_Store
+*.mlpackage/
+*.mlmodelc/
+/tmp/
+results/raw/
