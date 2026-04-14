@@ -111,14 +111,38 @@ This is ~2-3 days of focused work:
   The key insight: real_ctx_start = (len(tokens) - 1) - s_real, pad
   positions get arbitrary rope (contribute ≈0 due to padded-K=0).
 
+## Contention measurement (stateless)
+
+Under background GPU workload (gemma-3-270m looping, same setup as Phase C
+and F.0 contention):
+
+| Config | Solo | Parallel | Slowdown | Retained |
+|---|---:|---:|---:|---:|
+| F.0 GPU-only DFlash | 40.92 | 32.79 | -20% | 80% |
+| F.1 ANE-stateless | 16.46 | 13.66 | -17% | **83%** |
+
+F.1 does show a *marginally* better preservation ratio (83% vs 80%) —
+the expected Phase-C pattern where ANE offload preserves more solo
+throughput under contention. But in absolute terms F.1 is still 2.4×
+*slower* than F.0 under contention (13.66 vs 32.79). The missing KV
+cache penalty dominates the contention-preservation benefit.
+
+Interpretation: the Phase-C pattern IS present, but to convert the
+pattern into an actual win, we need F.1 solo throughput to approach
+F.0 solo throughput first. That's gated on the KV cache work.
+
 ## Next session work
 
 Adding the KV cache is the next concrete step. The expected outcome:
 - Accept rates recover toward F.0's numbers (within ~5-10%)
-- Throughput: solo likely within noise of F.0 (ANE latency is good)
-- **Under contention** (Phase C-style): F.1 should preserve more solo
-  throughput than F.0 — that's the real DFlash-on-Apple-Silicon
-  value proposition, analogous to our Phase C result.
+- Throughput solo: likely within noise of F.0 (ANE latency is good, draft
+  isn't the bottleneck in DFlash — target verify is)
+- **Under contention**: F.1 should beat F.0. If solo is ~F.0 and
+  preservation is 85-90% vs F.0's 80%, F.1 parallel lands at 35 vs 33 tok/s.
+
+The solo win is unlikely to be dramatic because target-verify dominates
+per-cycle cost in DFlash. The contention win IS the main prize, analogous
+to Phase C.
 
 ## Files committed
 
