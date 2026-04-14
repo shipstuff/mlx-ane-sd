@@ -1,7 +1,8 @@
 # Day 0 findings — speculative decoding baseline measurements
 
 **Date:** 2026-04-13
-**Hosts:** mini-02 (M4 Pro, 64 GB) — local; mini-01 (M4 Pro, 64 GB) — dflash-mlx baseline
+**Hardware:** Mac mini M4 Pro, 64 GB (two machines used — one for our local
+mlx-lm SD sweeps, one for the dflash-mlx reproduction)
 **Duration:** single afternoon
 
 ## Summary
@@ -20,7 +21,7 @@ overhead eats most of the benefit regardless of approach.
 
 ## The datasets
 
-**Our Gemma-3-12B sweep on mini-02:**
+**Our Gemma-3-12B sweep (M4 Pro):**
 - Target: `mlx-community/gemma-3-12b-it-{4bit,bf16}`
 - Draft: `mlx-community/gemma-3-270m-it-bf16`
 - Engine: `mlx_lm.stream_generate` with `draft_model=` parameter
@@ -29,7 +30,7 @@ overhead eats most of the benefit regardless of approach.
 - Decode: greedy (temp=0), max 80 new tokens
 - Output correctness: 10/10 exact match vs target-only decode (SD is lossless)
 
-**dflash-mlx on mini-01:**
+**dflash-mlx baseline (M4 Pro):**
 - Target: `mlx-community/Qwen3-4B-{bf16,4bit}`
 - Draft: `z-lab/Qwen3-4B-DFlash-b16` (block-diffusion, same size as target)
 - Engine: dflash-mlx CLI, `parallel-replay` verify mode
@@ -105,7 +106,7 @@ serial time on the GPU, not acceptance.** If the draft ran in parallel on a
 separate engine, we'd expect the peak to shift right and speedup to keep
 climbing.
 
-## dflash-mlx reproduction (mini-01)
+## dflash-mlx reproduction (M4 Pro)
 
 Author reports: M4 Max, Qwen3-4B, 4.6× bf16 / 1.4× 4bit.
 

@@ -8,7 +8,7 @@ then test whether heterogeneous ANE + GPU parallel execution (per the Apple
 [Mirror Speculative Decoding](https://arxiv.org/abs/2510.13161) paper) can push
 past it.
 
-**Tested on:** Mac mini M4 Pro, 64 GB (mini-02) and mini-01 (dflash-mlx baseline).
+**Tested on:** Mac mini M4 Pro, 64 GB (two machines — one for local SD sweeps, one for the dflash-mlx baseline reproduction).
 
 ## Current findings (day 0)
 
@@ -23,7 +23,7 @@ Using `mlx-lm`'s built-in speculative decoding with a natural same-family draft:
 
 ### dflash-mlx comparison (M4 Pro, Qwen3-4B, custom block-diffusion draft)
 
-Reproduced [Aryagm/dflash-mlx](https://github.com/Aryagm/dflash-mlx) on mini-01:
+Reproduced [Aryagm/dflash-mlx](https://github.com/Aryagm/dflash-mlx) on M4 Pro:
 
 | Config | Baseline | DFlash | Mean speedup | Max (ideal prompt) |
 |---|---:|---:|---:|---:|
@@ -98,15 +98,17 @@ See [notes/next_steps.md](./notes/next_steps.md) for the integration plan.
 
 ## Quick start
 
+Requires a Python environment with `mlx-lm 0.31+`. See [Environments](#environments).
+
 ```bash
 # Gemma 3 12B bf16 + Gemma 3 270M bf16 draft (GPU-only baseline)
-/Users/carl/models/mlx-venv/bin/python scripts/sweep_num_draft_bf16.py
+python scripts/sweep_num_draft_bf16.py
 
 # 4bit sweep (same pair, confirms 4bit is a dead end for SD)
-/Users/carl/models/mlx-venv/bin/python scripts/sweep_num_draft_4bit.py
+python scripts/sweep_num_draft_4bit.py
 
 # Higher num_draft values at bf16 to find the ceiling
-/Users/carl/models/mlx-venv/bin/python scripts/sweep_num_draft_bf16_high.py
+python scripts/sweep_num_draft_bf16_high.py
 ```
 
 ## Layout
@@ -119,37 +121,25 @@ CLAUDE.md       # symlinked to README.md (project memory)
 AGENTS.md       # symlinked to README.md (agent context)
 ```
 
-## Hosts
-
-- **mini-02** (192.168.0.62) — primary dev host. M4 Pro 64 GB. All local SD
-  sweeps.
-- **mini-01** (192.168.0.61) — ran the dflash-mlx reproduction baseline.
-  Install lives at `/Volumes/External/dflash-work/` on that host.
-- **3-mini cluster** over Thunderbolt 5 via `exo` — available if a workload
-  needs more than one mini.
-
 ## Environments
 
-- **MLX venv** — `~/models/mlx-venv/` (Python 3.11, mlx 0.31.1, mlx-lm
-  0.31.2). Primary for all MLX-side work.
-- **ANEMLL venv** — `~/projects/anemll/env-anemll/` (Python 3.9.6, coremltools
-  9.0). For ANE-side bridging.
+Two Python environments are assumed in this repo:
 
-## Key paths
+- **MLX venv** — Python 3.11, `mlx 0.31+`, `mlx-lm 0.31+`. Primary for all
+  MLX-side work (baselines, SD sweeps on GPU).
+- **ANEMLL venv** — Python 3.9.6, `coremltools 9.0`. For ANE-side bridging.
+  See [`Anemll/Anemll`](https://github.com/Anemll/Anemll) for install.
 
-```
-/Users/carl/models/gemma3-270m-ane/
-  # ANE draft (ANEMLL stock, already compiled, ctx=512, LUT6)
+## Models used
 
-/Users/carl/.cache/huggingface/hub/models--mlx-community--gemma-3-12b-it-bf16/
-  # bf16 target, ~24 GB (downloaded)
+All are public on HuggingFace. Download via `huggingface-cli download <repo>`.
 
-/Users/carl/.cache/huggingface/hub/models--mlx-community--gemma-3-270m-it-bf16/
-  # MLX draft for GPU-only baseline
-
-/Users/Shared/models/huggingface/hub/models--mlx-community--gemma-3-12b-it-4bit/
-  # 4bit target (NAS)
-```
+| Role | Model | Notes |
+|---|---|---|
+| Target (bf16) | `mlx-community/gemma-3-12b-it-bf16` | ~24 GB |
+| Target (4bit) | `mlx-community/gemma-3-12b-it-4bit` | ~7.5 GB |
+| Draft (MLX) | `mlx-community/gemma-3-270m-it-bf16` | ~550 MB |
+| Draft (ANE) | `anemll/anemll-gemma-3-270m-it-MONO-ctx512-lut6` | CoreML monolithic |
 
 ## Technical gotchas
 
@@ -170,7 +160,7 @@ recurrent state isn't trimmable. If you want SD with Qwen, use the Qwen3
 
 ### The ANE draft is already there
 
-`/Users/carl/models/gemma3-270m-ane/gemma3_monolithic_full_lut6.mlmodelc` is the
+The ANEMLL-provided CoreML bundle (`gemma3_monolithic_full_lut6.mlmodelc`) is the
 compiled ANE model. It uses the ANEMLL convention:
 
 - Single monolithic model (embed + FFN + lm_head in one `.mlmodelc`)

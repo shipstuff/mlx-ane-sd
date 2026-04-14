@@ -1,7 +1,7 @@
-# dflash-mlx reproduction on M4 Pro (mini-01)
+# dflash-mlx reproduction on M4 Pro
 
 **Date:** 2026-04-13
-**Host:** `skynet-m4-mini-01` (192.168.0.61), M4 Pro 64 GB, macOS 26.3.1
+**Hardware:** Mac mini M4 Pro, 64 GB, macOS 26.3.1
 **Tool:** [Aryagm/dflash-mlx](https://github.com/Aryagm/dflash-mlx)
 
 ## Purpose
@@ -16,10 +16,8 @@ Reproduce dflash-mlx's published benchmarks on our M4 Pro hardware to:
 
 ## Setup
 
-- Clean Python 3.14 venv at `/Volumes/External/dflash-work/.venv`
-- External drive because internal boot disk had only 6 GB free
-- HF cache pinned to `/Volumes/External/dflash-work/hf-cache/` to keep
-  downloads off the boot volume
+- Clean Python 3.14 venv (dflash-mlx requires 3.10+; system Python was 3.9)
+- HF cache pinned to an external volume since the internal boot disk was tight
 - Installed dflash-mlx via `pip install -e .`
 - MLX 0.31.1, mlx-lm 0.31.2
 
@@ -128,16 +126,18 @@ Reasons this may be the case:
 3. **Standard SD is more robust to workload variance** than block diffusion,
    which relies on the draft predicting entire blocks correctly
 
-## Files on mini-01
+## Reproducing this
 
 ```
-/Volumes/External/dflash-work/
+dflash-work/
 ├── dflash-mlx/                  # git clone + editable install
-├── .venv/                       # Python 3.14 venv
-├── hf-cache/                    # HF models (8+ GB)
-├── dflash_bench.py              # our driver
+├── .venv/                       # Python 3.10+ venv
+├── hf-cache/                    # HF models (8+ GB; pin HF_HOME to keep off boot disk)
+├── dflash_bench.py              # driver script (not in this repo — rewrite from README)
 ├── bench_log.txt                # full output
 └── bench_results.json           # structured results
 ```
 
-Results JSON also copied to `/tmp/bench_results.json` on mini-01.
+Key environment pins to avoid filling the boot disk: `HF_HOME`, `HF_HUB_CACHE`,
+`HF_XET_CACHE`, `HUGGINGFACE_HUB_CACHE`, `TRANSFORMERS_CACHE`, `TMPDIR`, and
+`HF_HUB_DISABLE_XET=1` all set to a volume with ≥15 GB free.
