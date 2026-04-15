@@ -1,0 +1,416 @@
+{
+  "none": [
+    {
+      "state_length": 512,
+      "max_new": 100,
+      "mean_tps": 17.510624467384062,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 100,
+          "seconds": 12.121076999930665,
+          "tps": 8.250091967947405,
+          "cycles": 56,
+          "accepted": 99,
+          "avg_accept_per_cycle": 1.7678571428571428,
+          "per_call_ms": 14.333447085976202
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 100,
+          "seconds": 2.69983341707848,
+          "tps": 37.03932226611637,
+          "cycles": 14,
+          "accepted": 99,
+          "avg_accept_per_cycle": 7.071428571428571,
+          "per_call_ms": 12.927952363887536
+        },
+        {
+          "prompt": "math",
+          "tokens": 100,
+          "seconds": 6.342556333052926,
+          "tps": 15.766513492181472,
+          "cycles": 28,
+          "accepted": 99,
+          "avg_accept_per_cycle": 3.5357142857142856,
+          "per_call_ms": 15.183788848974343
+        },
+        {
+          "prompt": "story",
+          "tokens": 100,
+          "seconds": 11.127715958980843,
+          "tps": 8.986570143290997,
+          "cycles": 52,
+          "accepted": 99,
+          "avg_accept_per_cycle": 1.9038461538461537,
+          "per_call_ms": 14.095195535516654
+        }
+      ]
+    },
+    {
+      "state_length": 512,
+      "max_new": 300,
+      "mean_tps": 8.617833735416196,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 300,
+          "seconds": 34.021942209103145,
+          "tps": 8.817838739368911,
+          "cycles": 157,
+          "accepted": 299,
+          "avg_accept_per_cycle": 1.9044585987261147,
+          "per_call_ms": 14.32358917548873
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 300,
+          "seconds": 29.157385917031206,
+          "tps": 10.288988212237713,
+          "cycles": 105,
+          "accepted": 299,
+          "avg_accept_per_cycle": 2.8476190476190477,
+          "per_call_ms": 14.714612274075902
+        },
+        {
+          "prompt": "math",
+          "tokens": 300,
+          "seconds": 36.32258475001436,
+          "tps": 8.259324111010063,
+          "cycles": 104,
+          "accepted": 299,
+          "avg_accept_per_cycle": 2.875,
+          "per_call_ms": 14.93817831214983
+        },
+        {
+          "prompt": "story",
+          "tokens": 300,
+          "seconds": 42.22269333305303,
+          "tps": 7.105183879048099,
+          "cycles": 180,
+          "accepted": 299,
+          "avg_accept_per_cycle": 1.6611111111111112,
+          "per_call_ms": 14.1226240789466
+        }
+      ]
+    },
+    {
+      "state_length": 512,
+      "max_new": 1000,
+      "mean_tps": 9.973686171510238,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 1000,
+          "seconds": 119.8616381669417,
+          "tps": 8.342952885452918,
+          "cycles": 789,
+          "accepted": 999,
+          "avg_accept_per_cycle": 1.2661596958174905,
+          "per_call_ms": 13.925249478956792
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 1000,
+          "seconds": 86.17406529095024,
+          "tps": 11.604419457567557,
+          "cycles": 661,
+          "accepted": 999,
+          "avg_accept_per_cycle": 1.5113464447806355,
+          "per_call_ms": 13.752357676905635
+        }
+      ]
+    },
+    {
+      "state_length": 1024,
+      "max_new": 100,
+      "mean_tps": 28.69493118361963,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 100,
+          "seconds": 6.889109875075519,
+          "tps": 14.515663389517908,
+          "cycles": 56,
+          "accepted": 99,
+          "avg_accept_per_cycle": 1.7678571428571428,
+          "per_call_ms": 17.511298287510208
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 100,
+          "seconds": 1.6770642920164391,
+          "tps": 59.62800619871511,
+          "cycles": 14,
+          "accepted": 99,
+          "avg_accept_per_cycle": 7.071428571428571,
+          "per_call_ms": 17.20916362579114
+        },
+        {
+          "prompt": "math",
+          "tokens": 100,
+          "seconds": 3.7817563749849796,
+          "tps": 26.44273985005107,
+          "cycles": 28,
+          "accepted": 99,
+          "avg_accept_per_cycle": 3.5357142857142856,
+          "per_call_ms": 18.75998529638829
+        },
+        {
+          "prompt": "story",
+          "tokens": 100,
+          "seconds": 7.0455702500185,
+          "tps": 14.19331529619443,
+          "cycles": 52,
+          "accepted": 99,
+          "avg_accept_per_cycle": 1.9038461538461537,
+          "per_call_ms": 18.5758172838877
+        }
+      ]
+    },
+    {
+      "state_length": 1024,
+      "max_new": 300,
+      "mean_tps": 16.063320231327612,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 300,
+          "seconds": 21.091234417050146,
+          "tps": 14.223918527854401,
+          "cycles": 142,
+          "accepted": 301,
+          "avg_accept_per_cycle": 2.119718309859155,
+          "per_call_ms": 18.682515247836445
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 300,
+          "seconds": 12.935739125008695,
+          "tps": 23.19156231436434,
+          "cycles": 81,
+          "accepted": 302,
+          "avg_accept_per_cycle": 3.728395061728395,
+          "per_call_ms": 19.619133260193063
+        },
+        {
+          "prompt": "math",
+          "tokens": 300,
+          "seconds": 17.31933033291716,
+          "tps": 17.321685898548818,
+          "cycles": 91,
+          "accepted": 300,
+          "avg_accept_per_cycle": 3.2967032967032965,
+          "per_call_ms": 18.58778292272281
+        },
+        {
+          "prompt": "story",
+          "tokens": 300,
+          "seconds": 31.52547291701194,
+          "tps": 9.51611418454289,
+          "cycles": 162,
+          "accepted": 300,
+          "avg_accept_per_cycle": 1.8518518518518519,
+          "per_call_ms": 18.298328694611513
+        }
+      ]
+    },
+    {
+      "state_length": 1024,
+      "max_new": 1000,
+      "mean_tps": 11.9987539959177,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 1000,
+          "seconds": 85.77096916700248,
+          "tps": 11.658956517710852,
+          "cycles": 705,
+          "accepted": 999,
+          "avg_accept_per_cycle": 1.4170212765957446,
+          "per_call_ms": 15.959234834906269
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 1000,
+          "seconds": 81.0467907920247,
+          "tps": 12.338551474124547,
+          "cycles": 533,
+          "accepted": 999,
+          "avg_accept_per_cycle": 1.874296435272045,
+          "per_call_ms": 18.000191743319633
+        }
+      ]
+    },
+    {
+      "state_length": 2048,
+      "max_new": 100,
+      "mean_tps": 24.051343418772085,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 100,
+          "seconds": 9.557315457961522,
+          "tps": 10.463189212478813,
+          "cycles": 56,
+          "accepted": 99,
+          "avg_accept_per_cycle": 1.7678571428571428,
+          "per_call_ms": 27.157001477982185
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 100,
+          "seconds": 2.339908374939114,
+          "tps": 42.736716134281146,
+          "cycles": 14,
+          "accepted": 99,
+          "avg_accept_per_cycle": 7.071428571428571,
+          "per_call_ms": 27.17838099592232
+        },
+        {
+          "prompt": "math",
+          "tokens": 100,
+          "seconds": 3.3741980420891196,
+          "tps": 29.636671811381127,
+          "cycles": 28,
+          "accepted": 99,
+          "avg_accept_per_cycle": 3.5357142857142856,
+          "per_call_ms": 24.16109518630297
+        },
+        {
+          "prompt": "story",
+          "tokens": 100,
+          "seconds": 7.480104875052348,
+          "tps": 13.368796516947254,
+          "cycles": 52,
+          "accepted": 99,
+          "avg_accept_per_cycle": 1.9038461538461537,
+          "per_call_ms": 25.06965379311273
+        }
+      ]
+    },
+    {
+      "state_length": 2048,
+      "max_new": 300,
+      "mean_tps": 13.323839598329714,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 300,
+          "seconds": 30.36688016692642,
+          "tps": 9.879184109493737,
+          "cycles": 142,
+          "accepted": 301,
+          "avg_accept_per_cycle": 2.119718309859155,
+          "per_call_ms": 27.726426934593842
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 300,
+          "seconds": 17.490820624982007,
+          "tps": 17.151853902813013,
+          "cycles": 81,
+          "accepted": 302,
+          "avg_accept_per_cycle": 3.728395061728395,
+          "per_call_ms": 27.669548844619666
+        },
+        {
+          "prompt": "math",
+          "tokens": 300,
+          "seconds": 19.42847237503156,
+          "tps": 15.441255195418455,
+          "cycles": 91,
+          "accepted": 300,
+          "avg_accept_per_cycle": 3.2967032967032965,
+          "per_call_ms": 27.513424423267388
+        },
+        {
+          "prompt": "story",
+          "tokens": 300,
+          "seconds": 27.71858016704209,
+          "tps": 10.823065185593654,
+          "cycles": 162,
+          "accepted": 300,
+          "avg_accept_per_cycle": 1.8518518518518519,
+          "per_call_ms": 25.91728575076379
+        }
+      ]
+    },
+    {
+      "state_length": 2048,
+      "max_new": 1000,
+      "mean_tps": 21.895349245285246,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 1000,
+          "seconds": 63.39735895791091,
+          "tps": 15.773527737391923,
+          "cycles": 322,
+          "accepted": 1006,
+          "avg_accept_per_cycle": 3.124223602484472,
+          "per_call_ms": 25.754121019756592
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 1000,
+          "seconds": 35.69239766604733,
+          "tps": 28.017170753178565,
+          "cycles": 290,
+          "accepted": 1001,
+          "avg_accept_per_cycle": 3.4517241379310346,
+          "per_call_ms": 23.776395940864138
+        }
+      ]
+    },
+    {
+      "state_length": 4096,
+      "max_new": 100,
+      "mean_tps": 21.469042478668793,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 100,
+          "seconds": 7.596830875030719,
+          "tps": 13.163383737905793,
+          "cycles": 56,
+          "accepted": 99,
+          "avg_accept_per_cycle": 1.7678571428571428,
+          "per_call_ms": 38.85992567562165
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 100,
+          "seconds": 2.3203974589705467,
+          "tps": 43.09606512169057,
+          "cycles": 14,
+          "accepted": 99,
+          "avg_accept_per_cycle": 7.071428571428571,
+          "per_call_ms": 40.39220536027902
+        },
+        {
+          "prompt": "math",
+          "tokens": 100,
+          "seconds": 5.218371667084284,
+          "tps": 19.163065871824735,
+          "cycles": 28,
+          "accepted": 99,
+          "avg_accept_per_cycle": 3.5357142857142856,
+          "per_call_ms": 40.1709449527386
+        },
+        {
+          "prompt": "story",
+          "tokens": 100,
+          "seconds": 9.566032000002451,
+          "tps": 10.453655183254078,
+          "cycles": 52,
+          "accepted": 99,
+          "avg_accept_per_cycle": 1.9038461538461537,
+          "per_call_ms": 41.66528763016686
+        }
+      ]
+    }
+  ],
+  "lut6_pt": [],
+  "lut4_gc8": []
+}
