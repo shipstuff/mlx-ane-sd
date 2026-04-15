@@ -29,11 +29,27 @@ PROMPTS = [
 ]
 
 
-def run_swift(prompt: str, max_new: int, draft: str, ane_lmhead: str = "") -> dict:
+def run_swift(prompt: str, max_new: int, draft: str, ane_lmhead: str = "",
+              ane_target_layers: str = "", ane_target_k: int = 0, ane_target_captures: str = "",
+              ane_target_layers2: str = "", ane_target_k2: int = 0, ane_target_captures2: str = "",
+              ane_target_lmhead: str = "",
+              target: str = "") -> dict:
     cmd = [str(SWIFT_BIN), "--prompt", prompt, "--max-new", str(max_new),
            "--draft", draft, "--json"]
+    if target:
+        cmd += ["--target", target]
     if ane_lmhead:
         cmd += ["--ane-lmhead", ane_lmhead]
+    if ane_target_layers:
+        cmd += ["--ane-target-layers", ane_target_layers,
+                "--ane-target-k", str(ane_target_k),
+                "--ane-target-captures", ane_target_captures]
+    if ane_target_layers2:
+        cmd += ["--ane-target-layers2", ane_target_layers2,
+                "--ane-target-k2", str(ane_target_k2),
+                "--ane-target-captures2", ane_target_captures2]
+    if ane_target_lmhead:
+        cmd += ["--ane-target-lmhead", ane_target_lmhead]
     result = subprocess.run(cmd, check=True, capture_output=True, text=True)
     return json.loads(result.stdout.strip())
 

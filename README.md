@@ -10,41 +10,57 @@ can push past it.
 
 **Tested on:** Mac mini M4 Pro, 64 GB.
 
-## Current best (Qwen3-4B target)
+## Current best (Qwen3-4B-bf16 target)
 
-Native Swift SD runner with ANE-hosted DFlash draft (LUT6) + ANE-hosted LUT6
-lm_head + MLX/GPU target verify (`dflash-sd` binary in `swift-bench/`):
+Native Swift SD runner with **full ANE offload** — draft body + draft
+lm_head + full target (2×K=18 chunks) + target lm_head all on ANE; MLX
+only does token embedding + final norm (`dflash-sd` binary in
+`swift-bench/`):
 
-| config                                            | mean tok/s | per-cycle | vs MLX-same-precision baseline |
-|:--------------------------------------------------|-----------:|----------:|-------------------------------:|
-| MLX bf16 baseline (no SD)                         |       28.5 |         — |                          1.00× |
-| MLX 8bit baseline (no SD)                         |       53.6 |         — |                          1.00× |
-| dflash-mlx (custom MLX draft, bf16 target)        |       43.6 |         — |                          1.53× |
-| Python F.1 (ANE draft + bf16 target)              |      34.97 |    102 ms |                          1.23× |
-| Swift `dflash-sd` (matches Python F.1)            |      34.32 |    102 ms |                          1.20× |
-| + ANE LUT6 lm_head (bf16 target)                  |      41.07 |     87 ms |                          1.44× |
-| + LUT6 draft (bf16 target)                        |      43.26 |     82 ms |                          1.52× |
-| + K=18 partial target on ANE (bf16, byte-identical) |     51.80 |    70 ms |                        1.82× |
-| **+ chunked full target on ANE (2×K=18, current best)** | **54.40** | **59 ms** |             **1.91×** |
-| + 8bit target (option, quality trade)             |      60.66 |     62 ms |                          1.13× |
+**Mean tok/s, 4-prompt bench at max_new=100 (all decode-only):**
 
-**54.40 tok/s mean at bf16 target quality** = **1.91× over MLX bf16 baseline**.
-Full Qwen3-4B target runs on ANE via 2 × K=18 LUT6 chunks; MLX does only
-the final norm + lm_head. Text is byte-identical to baseline on
-capital/fibonacci and semantically equivalent on math/story (LUT6 noise
-shifts argmax on near-ties).
+| config                                            | mean t/s | vs MLX bf16 baseline |
+|:--------------------------------------------------|---------:|---------------------:|
+| MLX bf16 baseline (no SD)                         |    29.27 |                1.00× |
+| dflash-mlx (custom MLX draft)                     |    43.6  |                1.49× |
+| Python F.1 (ANE draft + MLX target)               |    34.97 |                1.19× |
+| Swift `dflash-sd` (matches Python F.1)            |    34.05 |                1.16× |
+| + ANE LUT6 lm_head (draft-side)                   |    40.96 |                1.40× |
+| + LUT6 draft body                                 |    43.05 |                1.47× |
+| + K=18 partial target (**byte-identical output**) |    52.81 |                1.80× |
+| + chunked full target (per_tensor LUT6)           |    55.90 |                1.91× |
+| + chunked + ANE target lm_head (per_tensor)       |    62.78 |                2.14× |
+| **+ chunked pgc LUT6 + ANE target lm_head** (BEST) | **64.76**|            **2.21×** |
+| _(alt: 8bit target option, different quality)_    |    60.66 |                2.07× |
 
-For strict byte-identical output, the K=18 partial-target config
-(51.80 tok/s, 1.82×) keeps the second half of the target on MLX.
+**Per-prompt (current best vs MLX bf16 baseline):**
 
-See notes for the journey:
+| prompt    | MLX bf16 | current best | speedup |
+|:----------|---------:|-------------:|--------:|
+| capital   |    29.39 |        32.99 |   1.12× |
+| fibonacci |    29.25 |       140.82 |   4.81× |
+| math      |    29.17 |        48.48 |   1.66× |
+| story     |    29.26 |        36.74 |   1.26× |
+
+Fibonacci hits 4.8× because its draft acceptance is very high (7.6 tokens
+per cycle). Prose prompts gain less (draft accepts 1.8-1.9 tokens/cycle).
+
+**Quality trade-off**: at the byte-identical level, the K=18 partial
+config (52.81 t/s, 1.80×) is strictly equivalent to the MLX bf16 target.
+Beyond that, LUT6 palettization of all 36 layers introduces minor drift
+on open-ended prompts (near-tie argmax flips); text stays coherent and
+semantically valid.
+
+See notes for the full journey:
 - [ane_lmhead_exploration.md](./notes/ane_lmhead_exploration.md) — ANE LUT6 lm_head, +20%
 - [draft_lut6_findings.md](./notes/draft_lut6_findings.md) — DFlash draft LUT6, 1.83× faster predict
-- [2c_partial_target_probe.md](./notes/2c_partial_target_probe.md) — single-layer feasibility
-- [2c_phase2_hybrid_target.md](./notes/2c_phase2_hybrid_target.md) — K=18 hybrid impl, +20%
-- [2c_phase3_chunked_full_target.md](./notes/2c_phase3_chunked_full_target.md) — full target on ANE, +5%
-- [8bit_target_findings.md](./notes/8bit_target_findings.md) — 8bit target (alt option)
-- [swift_multistream_ane_lmhead.md](./notes/swift_multistream_ane_lmhead.md) — multi-stream compounding
+- [2c_partial_target_probe.md](./notes/2c_partial_target_probe.md) — per-layer feasibility
+- [2c_phase2_hybrid_target.md](./notes/2c_phase2_hybrid_target.md) — K=18 hybrid, +20%
+- [2c_phase3_chunked_full_target.md](./notes/2c_phase3_chunked_full_target.md) — chunked, +5%
+- [2c_phase4_full_ane.md](./notes/2c_phase4_full_ane.md) — ANE target lm_head + pgc LUT6, 2.21×
+- [8bit_target_findings.md](./notes/8bit_target_findings.md) — 8bit-target alternative
+- [swift_runner_bench.md](./notes/swift_runner_bench.md) — Python parity
+- [swift_multistream_ane_lmhead.md](./notes/swift_multistream_ane_lmhead.md) — multi-stream
 
 ## Findings so far
 
@@ -154,31 +170,71 @@ See [notes/ane_lmhead_exploration.md](./notes/ane_lmhead_exploration.md).
    on GPU. Direct attack on the 72 ms target_verify ceiling. Biggest engineering
    cost; biggest possible upside.
 
-## Quick start
+## Quick start — reproduce the best 2.21× result
 
 ```bash
+# 0. Ensure MLX env + tools exist
+#    MLX venv: /Users/carl/models/mlx-venv (Python 3.11 + mlx-lm + coremltools)
+#    anemll-profile: ~/projects/anemll-profile (profiling tool)
+
 # 1. Build the Swift runner
 cd swift-bench
 swift build -c release
 cp $(find .build -name mlx.metallib | head -1) .build/release/
 
-# 2. Compile DFlash ANE draft (one-time, ~10 min)
-python scripts/dflash_coreml_convert_accum.py
+# 2. Convert/compile all ANE artifacts (one-time, ~30 min total)
 
-# 3. (Optional) Export Qwen3-4B lm_head as ANE LUT6 (one-time, ~3 min)
-python scripts/export_qwen3_lmhead_ane.py
+# 2a. DFlash ANE draft body (accumulating cache)
+python scripts/dflash_coreml_convert_accum.py --output /tmp/dflash_ane_accum.mlpackage
+python scripts/dflash_lut_quantize.py \
+    --input /tmp/dflash_ane_accum.mlpackage \
+    --output /tmp/dflash_ane_accum_lut6.mlpackage --bits 6 --granularity per_tensor
+xcrun coremlcompiler compile /tmp/dflash_ane_accum_lut6.mlpackage /tmp/dflash_ane_accum_lut6_c/
 
-# 4. Run the SD loop
+# 2b. Qwen3-4B lm_head for draft (bs=15) and target (bs=16) — ANE LUT6
+python scripts/export_qwen3_lmhead_ane.py --block-size-out 15     # /tmp/lmhead_qwen3/
+python scripts/export_qwen3_lmhead_ane.py --block-size-out 16 --skip-extract  # /tmp/lmhead_qwen3/bs16/
+
+# 2c. Qwen3-4B target, 2 × K=18 chunks (per_grouped_channel LUT6)
+python scripts/convert_qwen3_layers_ane.py \
+    --num-layers 18 --start-layer 0 --capture-indices 1,9,17 \
+    --out-dir /tmp/qwen3_klayers_cap_pgc
+python scripts/convert_qwen3_layers_ane.py \
+    --num-layers 18 --start-layer 18 --capture-indices 7,15 \
+    --out-dir /tmp/qwen3_klayers_cap_pgc
+
+# 3. Run the full-ANE SD stack
 .build/release/dflash-sd \
-    --max-new 100 \
     --prompt "The capital of France is Paris, which is known for" \
-    --ane-lmhead /tmp/lmhead_qwen3/lmhead_lut6.mlmodelc
+    --max-new 100 \
+    --draft /tmp/dflash_ane_accum_lut6_c/dflash_ane_accum_lut6.mlmodelc \
+    --ane-lmhead /tmp/lmhead_qwen3/lmhead_lut6.mlmodelc \
+    --ane-target-layers /tmp/qwen3_klayers_cap_pgc/K18/qwen3_K18_lut6.mlmodelc \
+    --ane-target-k 18 --ane-target-captures 1,9,17 \
+    --ane-target-layers2 /tmp/qwen3_klayers_cap_pgc/K18_s18/qwen3_K18_lut6.mlmodelc \
+    --ane-target-k2 18 --ane-target-captures2 7,15 \
+    --ane-target-lmhead /tmp/lmhead_qwen3/bs16/lmhead_lut6.mlmodelc
 
-# Or benchmark Swift vs Python F.1
+# 4. Reproduce the full comparison bench (~15 min)
+python scripts/bench_final_stack.py --max-new 100
+#   -> notes/bench_final_stack.json + stdout table
+```
+
+For strict byte-identical output at 1.80× speedup, omit the `--ane-target-layers2`
+and related chunk-2 flags (K=18 partial config).
+
+### Individual benches
+
+```bash
+# Swift vs Python F.1 parity (decode-only)
 python scripts/bench_sd_swift_vs_python.py --max-new 100
 
-# Or benchmark with vs without ANE lm_head
+# Before/after ANE lm_head
 python scripts/bench_ane_lmhead.py --max-new 100
+
+# 2-stream contention
+bash scripts/bench_swift_2stream.sh
+bash scripts/bench_swift_2stream_ane_lmhead.sh
 ```
 
 ## Layout
