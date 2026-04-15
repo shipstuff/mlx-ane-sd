@@ -1,5 +1,5 @@
 // swift-tools-version:6.0
-// Swift package for native ANE benchmarking and (WIP) native SD runner.
+// Swift package for native ANE benchmarking and native SD runner.
 import PackageDescription
 
 let package = Package(

@@ -76,11 +76,47 @@ def python_latency(mlmodelc: str, state_length: int, iters: int) -> dict:
 
 
 def swift_latency(mlmodelc: str, state_length: int, iters: int) -> dict:
+    # Note: the predict-only bench is in a separate binary (ane-latency-bench),
+    # while dflash-swift-runner measures full cycle (predict + mask + rope + cache).
+    # Use the simpler ane-latency-bench here for predict-only parity.
+    simple_bin = SWIFT_BIN.parent / "ane-latency-bench"
+    result = subprocess.run(
+        [str(simple_bin), mlmodelc, str(state_length), str(iters)],
+        check=True, capture_output=True, text=True,
+    )
+    # ane-latency-bench prints human-readable to stdout; parse the key numbers
+    out = result.stdout
+    data = {"n_iters": iters, "state_length": state_length}
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith("mean:"):
+            data["mean_ms"] = float(line.split()[1])
+        elif line.startswith("median:"):
+            data["median_ms"] = float(line.split()[1])
+        elif line.startswith("stdev:"):
+            data["stdev_ms"] = float(line.split()[1])
+        elif line.startswith("p10:"):
+            data["p10_ms"] = float(line.split()[1])
+        elif line.startswith("p90:"):
+            data["p90_ms"] = float(line.split()[1])
+        elif line.startswith("min:"):
+            data["min_ms"] = float(line.split()[1])
+        elif line.startswith("max:"):
+            data["max_ms"] = float(line.split()[1])
+    data.setdefault("load_time_ms", 0)
+    return data
+
+
+def swift_full_cycle(mlmodelc: str, state_length: int, cycles: int = 30) -> dict:
+    """Measure the full Swift SD draft cycle (predict + mask + rope + cache).
+    This is what matters for end-to-end — not just predict latency.
+    """
     result = subprocess.run(
         [str(SWIFT_BIN),
          "--draft", mlmodelc,
          "--state-length", str(state_length),
-         "--iters", str(iters),
+         "--cycles", str(cycles),
+         "--accept-rate", "0.5",
          "--json"],
         check=True, capture_output=True, text=True,
     )
@@ -107,33 +143,35 @@ def main():
 
         print(f"\n=== S={s} ===")
         py = python_latency(path, s, args.iters)
-        print(f"[python] mean={py['mean_ms']:.3f} stdev={py['stdev_ms']:.3f}")
+        print(f"[python predict-only] mean={py['mean_ms']:.3f} stdev={py['stdev_ms']:.3f}")
         sw = swift_latency(path, s, args.iters)
-        print(f"[swift]  mean={sw['mean_ms']:.3f} stdev={sw['stdev_ms']:.3f}")
+        print(f"[swift predict-only]  mean={sw['mean_ms']:.3f}")
+        full = swift_full_cycle(path, s, cycles=30)
+        cycle_mean = full["profile"]["phases"]["cycle_total"]["totalMs"] / full["profile"]["phases"]["cycle_total"]["calls"]
+        print(f"[swift full cycle]    mean={cycle_mean:.3f} (includes mask/rope/cache)")
 
         savings = py["mean_ms"] - sw["mean_ms"]
         pct = savings / py["mean_ms"] * 100
-        # 25 cycles per 100-token gen (approx)
         per_100_savings = savings * 25
         rows.append({
             "state_length": s,
-            "python_mean_ms": py["mean_ms"],
-            "swift_mean_ms": sw["mean_ms"],
+            "python_predict_ms": py["mean_ms"],
+            "swift_predict_ms": sw["mean_ms"],
+            "swift_full_cycle_ms": cycle_mean,
             "savings_ms": savings,
             "savings_pct": pct,
             "per_100_tok_savings_ms": per_100_savings,
         })
-        print(f"  savings: {savings:.2f} ms ({pct:.1f}%)")
+        print(f"  predict-only savings: {savings:.2f} ms ({pct:.1f}%)")
         print(f"  per 100 tokens (~25 cycles): {per_100_savings:.0f} ms saved")
 
     print("\n=== Summary ===")
-    print(f"{'S':>6} {'python':>10} {'swift':>10} {'save ms':>10} {'save %':>8} {'per 100tok':>12}")
+    print(f"{'S':>6} {'py predict':>12} {'sw predict':>12} {'sw full':>10} {'save %':>8}")
     for r in rows:
-        print(f"{r['state_length']:>6} {r['python_mean_ms']:>7.2f}ms "
-              f"{r['swift_mean_ms']:>7.2f}ms "
-              f"{r['savings_ms']:>7.2f}ms "
-              f"{r['savings_pct']:>7.1f}% "
-              f"{r['per_100_tok_savings_ms']:>9.0f}ms")
+        print(f"{r['state_length']:>6} {r['python_predict_ms']:>9.2f}ms "
+              f"{r['swift_predict_ms']:>9.2f}ms "
+              f"{r['swift_full_cycle_ms']:>7.2f}ms "
+              f"{r['savings_pct']:>7.1f}%")
 
 
 if __name__ == "__main__":
