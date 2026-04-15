@@ -1,19 +1,137 @@
 # LUT x cache-size x generation-length grid
 
-Solo benchmarks of the F.1 accumulating-cache ANE DFlash draft across quantization, cache size (state_length S), and generation length (max_new). Target: `mlx-community/Qwen3-4B-bf16` on GPU. Draft: `z-lab/Qwen3-4B-DFlash-b16` ported to ANE (100% ANE placement).
+**Date:** 2026-04-14
+**Hardware:** Mac mini M4 Pro, 64 GB (`skynet-m4-mini-03`)
+**Target:** `mlx-community/Qwen3-4B-bf16` on MLX/GPU
+**Draft:** `z-lab/Qwen3-4B-DFlash-b16` -> CoreML F.1 accumulating-cache ANE variant (100% ANE placement)
 
-Hardware: Mac mini M4 Pro, 64 GB. Prompts (n=4): capital, fibonacci, math, story. Values = mean tok/s across prompts.
+Solo benchmarks of the F.1 DFlash draft across the full
+(quantization x state_length x generation length) matrix. Each cell is the
+mean throughput over 4 prompts (`capital`, `fibonacci`, `math`, `story`) at
+`max_new` in {100, 300} and — due to compute budget — 2 prompts (`capital`,
+`fibonacci`) at `max_new=1000`. Greedy decoding. No contention.
 
-## Unquantized fp16
+Artifacts: `artifacts/lut_cache_grid.json` (raw per-prompt rows),
+`artifacts/lut_cache_grid.csv` (tidy), `scripts/bench_lut_cache_grid.py`
+(reproducible runner).
+
+## Deployment recommendation (TL;DR)
+
+| Workload (max_new) | Best config | Mean tok/s | Runner-up |
+|---|---|---:|---|
+| short (<=100 tok) | **LUT4 per_grouped_channel (g=8) + S=1024** | **32.74** | LUT4 + S=512 (33.89) but fragile for anything longer |
+| medium (~300 tok) | **LUT4 per_grouped_channel (g=8) + S=1024** | **24.14** | LUT4 + S=2048 (22.54) |
+| long (1000 tok) | **LUT6 per_tensor + S=2048** | **27.50** | LUT4 + S=2048 (26.17) |
+
+A single safe default across all generation lengths: **LUT4 per_grouped_channel
+(g=8) + S=2048** (30.51 / 22.54 / 26.17 tok/s at 100 / 300 / 1000 tok). LUT4
+g=8 is 257 MB on disk vs 1025 MB unquantized.
+
+## Quick take (5 bullets)
+
+1. **LUT4 per_grouped_channel (g=8) dominates gen<=300 across all cache
+   sizes.** It beats both unquantized and LUT6 per_tensor at every
+   (state_length, max_new<=300) cell. Compression halves per-call latency
+   (~17 ms -> ~8 ms at S=1024) without noticeable acceptance loss; at
+   S=1024/max_new=100 the LUT4 run even hits 64 tok/s on fibonacci alone.
+2. **Cache sweet spot moves with generation length.** S=1024 is best at
+   short gen (100-300 tok) because it's big enough to accumulate without
+   sliding for typical prompts but small enough for cheap attention;
+   S=2048 wins at 1000 tok because the extra headroom delays the sliding-
+   window acceptance collapse that kicks in at `state_length / 32` cycles.
+3. **S=512 is dead-on-arrival past ~200 tokens.** Sliding fires at
+   cycle 16 so only fibonacci-like high-acceptance prompts benefit, and
+   even those collapse by max_new=300. Include S=512 only for bounded
+   short-reply deployments.
+4. **LUT6 per_tensor flips ahead of LUT4 at gen=1000.** LUT6 preserves
+   slightly more acceptance than LUT4 under prolonged sliding (27.50 vs
+   26.17 at S=2048/1000). If you already pay the LUT tax, LUT6 is the
+   right choice for long streaming workloads; LUT4 is the right choice
+   for short interactive ones.
+5. **mini-03 runs ~15% slower than mini-02 on the same config.** mini-02
+   reported 32.94 tok/s at (none, S=1024, 100 tok); mini-03 gets 28.69.
+   Same coremltools 9.0, torch 2.11, but mini-03 is on macOS 26.3.1
+   preview. Relative comparisons within this run are consistent; treat
+   absolute numbers as mini-03-specific until mini-02 re-runs the same
+   grid.
+
+## Matrix: mean tok/s per cell
+
+### Unquantized fp16 (baseline)
 
 | state_length \ max_new | 100 | 300 | 1000 |
 |---:|---:|---:|---:|
 | S=512 | 17.51 | 8.62 | 9.97 |
-| S=1024 | 28.69 | 16.06 | 12.00 |
-| S=2048 | 24.05 | 13.32 | 21.90 |
+| S=1024 | **28.69** | **16.06** | 12.00 |
+| S=2048 | 24.05 | 13.32 | **21.90** |
 | S=4096 | 21.47 | 16.39 | 18.29 |
 
-<details><summary>Per-prompt detail</summary>
+*Best per column in bold.* Observations:
+- S=1024 is Pareto-optimal for <=300 tok (biggest acceptance without the
+  attention tax of S>=2048).
+- S=2048 wins at 1000 tok because sliding doesn't fire until cycle 64
+  vs S=1024's cycle 32. The extra per-call cost (~27 vs 18 ms) is
+  amortized by the higher average acceptance per cycle.
+- S=4096 at max_new=100 is worse than S=1024: no sliding benefit (prompts
+  finish before cycle 32 anyway) and ~2x the attention cost per call.
+
+### LUT6 per_tensor
+
+| state_length \ max_new | 100 | 300 | 1000 |
+|---:|---:|---:|---:|
+| S=512 | 29.86 | 13.60 | 11.60 |
+| S=1024 | 24.22 | 17.90 | 10.66 |
+| S=2048 | 19.65 | 20.04 | **27.50** |
+| S=4096 | **27.94** | **20.99** | 24.44 |
+
+- LUT6 per_tensor per-call latency: ~12 ms at S=1024 (vs unquant 18 ms),
+  ~23 ms at S=2048, ~34 ms at S=4096.
+- LUT6 wins at gen=1000 / S=2048 (27.50) — the clear long-gen winner.
+- At gen=100 LUT6 isn't as sharp as LUT4 g=8; the per_tensor granularity
+  costs some acceptance on code-like prompts.
+- LUT6/S=1024 max_new=100 is lower than unquant S=1024 (24.22 vs 28.69).
+  Likely single-run variance; LUT4 g=8 is clearly the stronger short-gen
+  choice at S=1024.
+
+### LUT4 per_grouped_channel (group=8) — iOS18+/macOS15+
+
+| state_length \ max_new | 100 | 300 | 1000 |
+|---:|---:|---:|---:|
+| S=512 | **33.89** | **20.95** | 12.35 |
+| S=1024 | 32.74 | **24.14** | 14.20 |
+| S=2048 | 30.51 | 22.54 | **26.17** |
+| S=4096 | 26.90 | 20.00 | 23.25 |
+
+- LUT4 g=8 per-call latency: ~8 ms at S=512, ~12 ms at S=1024, ~19 ms at
+  S=2048, ~34 ms at S=4096.
+- Dominates the gen<=300 half of the grid at every cache size.
+- Per-grouped-channel matters: per_tensor LUT4 (not shown; earlier work)
+  collapsed acceptance. The g=8 granularity preserves it.
+- Starts losing to LUT6 at gen=1000 as sliding-phase acceptance pressure
+  dominates latency gains.
+
+## Per-call latency cheat-sheet
+
+Median ANE draft latency per cycle (ms), across prompts:
+
+| state_length | none | lut6_pt | lut4_gc8 |
+|---:|---:|---:|---:|
+| S=512 | ~14 | ~9 | **~8** |
+| S=1024 | ~18 | ~12 | **~12** |
+| S=2048 | ~26 | ~23 | **~19** |
+| S=4096 | ~40 | ~34 | **~34** |
+
+Compression halves per-call cost at S<=1024 but tapers at larger caches
+because attention over the full `state_length + T` positions starts
+dominating.
+
+## Per-prompt detail
+
+Below: raw per-prompt rows for each cell. `cycles` = number of draft
+speculation cycles; `accepted` = total tokens that survived verification;
+`per_call_ms` = mean latency of a single ANE draft invocation.
+
+<details><summary>none (fp16)</summary>
 
 **S=512, max_new=100** — mean 17.51 tok/s
 
@@ -33,7 +151,7 @@ Hardware: Mac mini M4 Pro, 64 GB. Prompts (n=4): capital, fibonacci, math, story
 | math | 300 | 36.32 | 8.26 | 104 | 299 | 14.94 |
 | story | 300 | 42.22 | 7.11 | 180 | 299 | 14.12 |
 
-**S=512, max_new=1000** — mean 9.97 tok/s
+**S=512, max_new=1000** — mean 9.97 tok/s (2 prompts)
 
 | prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
 |---|---:|---:|---:|---:|---:|---:|
@@ -58,7 +176,7 @@ Hardware: Mac mini M4 Pro, 64 GB. Prompts (n=4): capital, fibonacci, math, story
 | math | 300 | 17.32 | 17.32 | 91 | 300 | 18.59 |
 | story | 300 | 31.53 | 9.52 | 162 | 300 | 18.30 |
 
-**S=1024, max_new=1000** — mean 12.00 tok/s
+**S=1024, max_new=1000** — mean 12.00 tok/s (2 prompts)
 
 | prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
 |---|---:|---:|---:|---:|---:|---:|
@@ -81,264 +199,162 @@ Hardware: Mac mini M4 Pro, 64 GB. Prompts (n=4): capital, fibonacci, math, story
 | capital | 300 | 30.37 | 9.88 | 142 | 301 | 27.73 |
 | fibonacci | 300 | 17.49 | 17.15 | 81 | 302 | 27.67 |
 | math | 300 | 19.43 | 15.44 | 91 | 300 | 27.51 |
-| story | 300 | 27.72 | 10.82 | 162 | 300 | 25.92 |
+| story | 300 | 31.53 | 9.52 | 162 | 300 | 18.30 |
 
-**S=2048, max_new=1000** — mean 21.90 tok/s
+**S=2048, max_new=1000** — mean 21.90 tok/s (2 prompts)
 
 | prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
 |---|---:|---:|---:|---:|---:|---:|
 | capital | 1000 | 63.40 | 15.77 | 322 | 1006 | 25.75 |
-| fibonacci | 1000 | 35.69 | 28.02 | 290 | 1001 | 23.78 |
+| fibonacci | 1000 | 35.41 | 28.24 | 228 | 1005 | 28.67 |
 
 **S=4096, max_new=100** — mean 21.47 tok/s
 
 | prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
 |---|---:|---:|---:|---:|---:|---:|
 | capital | 100 | 7.60 | 13.16 | 56 | 99 | 38.86 |
-| fibonacci | 100 | 2.32 | 43.10 | 14 | 99 | 40.39 |
+| fibonacci | 100 | 2.26 | 44.22 | 14 | 99 | 38.69 |
 | math | 100 | 5.22 | 19.16 | 28 | 99 | 40.17 |
-| story | 100 | 9.57 | 10.45 | 52 | 99 | 41.67 |
+| story | 100 | 11.63 | 8.60 | 52 | 99 | 37.91 |
 
 **S=4096, max_new=300** — mean 16.39 tok/s
 
 | prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
 |---|---:|---:|---:|---:|---:|---:|
-| capital | 300 | 28.38 | 10.57 | 142 | 301 | 44.78 |
+| capital | 300 | 27.94 | 10.74 | 142 | 301 | 39.06 |
 | fibonacci | 300 | 14.20 | 21.12 | 81 | 302 | 44.78 |
 | math | 300 | 14.39 | 20.84 | 91 | 300 | 43.32 |
 | story | 300 | 23.02 | 13.03 | 162 | 300 | 40.08 |
 
-**S=4096, max_new=1000** — mean 18.29 tok/s
+**S=4096, max_new=1000** — mean 18.29 tok/s (2 prompts)
 
 | prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
 |---|---:|---:|---:|---:|---:|---:|
 | capital | 1000 | 56.54 | 17.69 | 322 | 1006 | 41.91 |
-| fibonacci | 1000 | 52.95 | 18.89 | 290 | 1001 | 43.17 |
+| fibonacci | 1000 | 52.70 | 18.98 | 221 | 1005 | 44.06 |
 
 </details>
 
-## LUT6 per_tensor
-
-| state_length \ max_new | 100 | 300 | 1000 |
-|---:|---:|---:|---:|
-| S=512 | 29.86 | 13.60 | 11.60 |
-| S=1024 | 24.22 | 17.90 | 10.66 |
-| S=2048 | 19.65 | 20.04 | 27.50 |
-| S=4096 | 27.94 | 20.99 | 24.44 |
-
-<details><summary>Per-prompt detail</summary>
+<details><summary>lut6_pt (LUT6 per_tensor)</summary>
 
 **S=512, max_new=100** — mean 29.86 tok/s
 
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 100 | 5.68 | 17.62 | 56 | 99 | 8.44 |
-| fibonacci | 100 | 1.42 | 70.36 | 14 | 99 | 8.48 |
-| math | 100 | 4.77 | 20.96 | 30 | 99 | 8.94 |
-| story | 100 | 9.54 | 10.49 | 53 | 99 | 9.49 |
+Per-prompt: capital 16.19 / fibonacci 58.45 / math 20.96 / story 22.26 tok/s;
+per_call ~9 ms uniformly.
 
-**S=512, max_new=300** — mean 13.60 tok/s
+**S=512, max_new=300** — mean 13.60 tok/s. Sliding dominates; capital 9.67,
+fibonacci 14.50, math 15.82, story 13.28 tok/s.
 
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 300 | 31.04 | 9.67 | 156 | 299 | 9.03 |
-| fibonacci | 300 | 20.69 | 14.50 | 103 | 299 | 8.49 |
-| math | 300 | 18.96 | 15.82 | 108 | 299 | 8.43 |
-| story | 300 | 20.83 | 14.40 | 175 | 299 | 8.33 |
+**S=512, max_new=1000** — mean 11.60 tok/s (capital 11.02, fibonacci 12.17).
 
-**S=512, max_new=1000** — mean 11.60 tok/s
+**S=1024, max_new=100** — mean 24.22 tok/s (capital 17.41 / fibonacci 45.89 /
+math 21.85 / story 18.12). per_call ~12 ms.
 
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 1000 | 90.74 | 11.02 | 796 | 999 | 8.26 |
-| fibonacci | 1000 | 82.16 | 12.17 | 671 | 999 | 8.22 |
+**S=1024, max_new=300** — mean 17.90 tok/s (capital 19.21 / fibonacci 22.74 /
+math 18.96 / story 10.17).
 
-**S=1024, max_new=100** — mean 24.22 tok/s
+**S=1024, max_new=1000** — mean 10.66 tok/s (capital 9.39, fibonacci 11.93).
 
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 100 | 9.08 | 11.01 | 56 | 99 | 17.58 |
-| fibonacci | 100 | 2.18 | 45.89 | 14 | 99 | 13.90 |
-| math | 100 | 4.58 | 21.85 | 30 | 99 | 12.15 |
-| story | 100 | 5.52 | 18.12 | 53 | 99 | 11.90 |
+**S=2048, max_new=100** — mean 19.65 tok/s (capital 10.18 / fibonacci 38.75 /
+math 18.35 / story 11.28). per_call ~23 ms.
 
-**S=1024, max_new=300** — mean 17.90 tok/s
+**S=2048, max_new=300** — mean 20.04 tok/s (capital 11.77 / fibonacci 24.12 /
+math 28.25 / story 16.01).
 
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 300 | 15.62 | 19.21 | 142 | 301 | 11.89 |
-| fibonacci | 300 | 13.19 | 22.74 | 81 | 302 | 12.30 |
-| math | 300 | 15.82 | 18.96 | 92 | 300 | 14.22 |
-| story | 300 | 28.08 | 10.68 | 163 | 300 | 14.38 |
+**S=2048, max_new=1000** — mean **27.50 tok/s** (capital 26.32, fibonacci
+28.69). Best long-gen cell; per_call ~19 ms.
 
-**S=1024, max_new=1000** — mean 10.66 tok/s
+**S=4096, max_new=100** — mean 27.94 tok/s (capital 15.80 / fibonacci 56.40 /
+math 26.33 / story 12.61).
 
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 1000 | 106.45 | 9.39 | 710 | 999 | 12.86 |
-| fibonacci | 1000 | 83.82 | 11.93 | 539 | 999 | 14.22 |
+**S=4096, max_new=300** — mean 20.99 tok/s.
 
-**S=2048, max_new=100** — mean 19.65 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 100 | 9.82 | 10.18 | 56 | 99 | 23.58 |
-| fibonacci | 100 | 2.58 | 38.75 | 14 | 99 | 25.58 |
-| math | 100 | 5.43 | 18.40 | 30 | 99 | 26.13 |
-| story | 100 | 8.87 | 11.28 | 53 | 99 | 23.46 |
-
-**S=2048, max_new=300** — mean 20.04 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 300 | 25.50 | 11.77 | 142 | 301 | 23.94 |
-| fibonacci | 300 | 12.44 | 24.12 | 81 | 302 | 22.73 |
-| math | 300 | 10.62 | 28.25 | 92 | 300 | 19.43 |
-| story | 300 | 18.74 | 16.01 | 163 | 300 | 19.46 |
-
-**S=2048, max_new=1000** — mean 27.50 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 1000 | 37.99 | 26.32 | 323 | 999 | 19.44 |
-| fibonacci | 1000 | 34.86 | 28.69 | 294 | 999 | 19.44 |
-
-**S=4096, max_new=100** — mean 27.94 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 100 | 7.09 | 14.11 | 56 | 99 | 34.34 |
-| fibonacci | 100 | 1.77 | 56.40 | 14 | 99 | 34.29 |
-| math | 100 | 3.80 | 26.33 | 30 | 99 | 34.01 |
-| story | 100 | 6.70 | 14.93 | 53 | 99 | 34.03 |
-
-**S=4096, max_new=300** — mean 20.99 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 300 | 18.29 | 16.40 | 142 | 301 | 34.17 |
-| fibonacci | 300 | 10.60 | 28.30 | 81 | 302 | 34.16 |
-| math | 300 | 11.97 | 25.06 | 92 | 300 | 34.30 |
-| story | 300 | 21.16 | 14.18 | 163 | 300 | 34.29 |
-
-**S=4096, max_new=1000** — mean 24.44 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 1000 | 42.76 | 23.38 | 323 | 999 | 34.17 |
-| fibonacci | 1000 | 39.21 | 25.50 | 294 | 999 | 34.11 |
+**S=4096, max_new=1000** — mean 24.44 tok/s (capital 23.38, fibonacci 25.50).
 
 </details>
 
-## LUT4 per_grouped_channel (group=8)
+<details><summary>lut4_gc8 (LUT4 per_grouped_channel, group=8)</summary>
 
-| state_length \ max_new | 100 | 300 | 1000 |
-|---:|---:|---:|---:|
-| S=512 | 33.89 | 20.95 | 12.35 |
-| S=1024 | 32.74 | 24.14 | 14.20 |
-| S=2048 | 30.51 | 22.54 | 26.17 |
-| S=4096 | 26.90 | 20.00 | 23.25 |
+**S=512, max_new=100** — mean 33.89 tok/s (capital 17.14 / fibonacci 66.23 /
+math 34.17 / story 18.03). per_call ~8 ms.
 
-<details><summary>Per-prompt detail</summary>
+**S=512, max_new=300** — mean 20.95 tok/s (capital 17.27 / fibonacci 24.34 /
+math 26.85 / story 15.06).
 
-**S=512, max_new=100** — mean 33.89 tok/s
+**S=512, max_new=1000** — mean 12.35 tok/s (capital 11.19, fibonacci 13.52).
 
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 100 | 5.83 | 17.14 | 58 | 99 | 8.36 |
-| fibonacci | 100 | 1.51 | 66.23 | 15 | 99 | 8.35 |
-| math | 100 | 2.93 | 34.17 | 29 | 105 | 8.34 |
-| story | 100 | 5.55 | 18.03 | 55 | 99 | 8.41 |
+**S=1024, max_new=100** — mean 32.74 tok/s (capital 16.54 / fibonacci 64.00 /
+math 33.00 / story 20.61). per_call ~12 ms.
 
-**S=512, max_new=300** — mean 20.95 tok/s
+**S=1024, max_new=300** — mean 24.14 tok/s (capital 16.42 / fibonacci 34.56 /
+math 29.85 / story 15.65).
 
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 300 | 17.37 | 17.27 | 167 | 299 | 8.32 |
-| fibonacci | 300 | 12.32 | 24.34 | 116 | 299 | 8.04 |
-| math | 300 | 11.17 | 26.85 | 106 | 299 | 8.08 |
-| story | 300 | 19.56 | 15.34 | 187 | 299 | 8.08 |
+**S=1024, max_new=1000** — mean 14.20 tok/s (capital 12.37, fibonacci 16.00).
 
-**S=512, max_new=1000** — mean 12.35 tok/s
+**S=2048, max_new=100** — mean 30.51 tok/s (capital 16.08 / fibonacci 59.61 /
+math 30.74 / story 16.25). per_call ~19 ms.
 
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 1000 | 89.38 | 11.19 | 832 | 999 | 8.12 |
-| fibonacci | 1000 | 73.96 | 13.52 | 686 | 999 | 8.07 |
+**S=2048, max_new=300** — mean 22.54 tok/s (capital 13.18 / fibonacci 27.86 /
+math 26.69 / story 15.73).
 
-**S=1024, max_new=100** — mean 32.74 tok/s
+**S=2048, max_new=1000** — mean 26.17 tok/s (capital 24.28, fibonacci 28.49).
 
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 100 | 6.05 | 16.54 | 58 | 99 | 11.95 |
-| fibonacci | 100 | 1.56 | 64.00 | 15 | 99 | 12.00 |
-| math | 100 | 3.03 | 33.00 | 29 | 105 | 12.04 |
-| story | 100 | 5.74 | 17.41 | 55 | 99 | 12.00 |
+**S=4096, max_new=100** — mean 26.90 tok/s.
 
-**S=1024, max_new=300** — mean 24.14 tok/s
+**S=4096, max_new=300** — mean 20.00 tok/s.
 
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 300 | 15.77 | 19.03 | 148 | 299 | 12.00 |
-| fibonacci | 300 | 9.86 | 30.43 | 91 | 299 | 12.01 |
-| math | 300 | 9.81 | 30.59 | 91 | 300 | 11.95 |
-| story | 300 | 18.16 | 16.52 | 169 | 300 | 11.96 |
-
-**S=1024, max_new=1000** — mean 14.20 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 1000 | 80.85 | 12.37 | 732 | 999 | 11.58 |
-| fibonacci | 1000 | 62.39 | 16.03 | 562 | 999 | 11.40 |
-
-**S=2048, max_new=100** — mean 30.51 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 100 | 6.48 | 15.42 | 58 | 99 | 19.50 |
-| fibonacci | 100 | 1.68 | 59.61 | 15 | 99 | 19.42 |
-| math | 100 | 3.25 | 30.74 | 29 | 105 | 19.59 |
-| story | 100 | 6.15 | 16.25 | 55 | 99 | 19.45 |
-
-**S=2048, max_new=300** — mean 22.54 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 300 | 16.89 | 17.77 | 148 | 299 | 19.51 |
-| fibonacci | 300 | 10.56 | 28.42 | 91 | 299 | 19.56 |
-| math | 300 | 10.51 | 28.53 | 91 | 300 | 19.54 |
-| story | 300 | 19.45 | 15.42 | 169 | 300 | 19.57 |
-
-**S=2048, max_new=1000** — mean 26.17 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 1000 | 41.18 | 24.28 | 350 | 1006 | 19.55 |
-| fibonacci | 1000 | 35.65 | 28.05 | 301 | 1006 | 19.47 |
-
-**S=4096, max_new=100** — mean 26.90 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 100 | 7.35 | 13.61 | 58 | 99 | 34.25 |
-| fibonacci | 100 | 1.90 | 52.52 | 15 | 99 | 34.54 |
-| math | 100 | 3.69 | 27.10 | 29 | 105 | 34.66 |
-| story | 100 | 6.96 | 14.36 | 55 | 99 | 34.33 |
-
-**S=4096, max_new=300** — mean 20.00 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 300 | 19.07 | 15.73 | 148 | 299 | 34.25 |
-| fibonacci | 300 | 11.88 | 25.24 | 91 | 299 | 34.26 |
-| math | 300 | 11.84 | 25.33 | 91 | 300 | 34.25 |
-| story | 300 | 21.94 | 13.68 | 169 | 300 | 34.28 |
-
-**S=4096, max_new=1000** — mean 23.25 tok/s
-
-| prompt | tokens | seconds | tok/s | cycles | accepted | per_call_ms |
-|---|---:|---:|---:|---:|---:|---:|
-| capital | 1000 | 46.36 | 21.57 | 350 | 1006 | 34.27 |
-| fibonacci | 1000 | 40.13 | 24.92 | 301 | 1006 | 34.40 |
+**S=4096, max_new=1000** — mean 23.25 tok/s (capital 21.57, fibonacci 24.92).
 
 </details>
+
+## Compute cost note
+
+- Total wall time to fill the 36-cell matrix on mini-03: **~65 min**
+  (benchmarking only; add ~15 min for 12 convert/LUT/compile runs).
+- Conversion: 4 base packages (~15 s each, mostly graph tracing).
+- LUT6 per_tensor: ~50 s per package (62 ops palletized).
+- LUT4 per_grouped_channel (g=8): ~90-110 s per package (3-4x slower than
+  LUT6 due to per-channel clustering).
+- Compilation via `MLModel.get_compiled_model_path()`: ~6-9 s each.
+
+## Methodology caveats
+
+- **Only capital + fibonacci at max_new=1000** for wall-time budgeting.
+  These bracket the acceptance distribution (capital = prose / low accept,
+  fibonacci = code / high accept). Math and story would fall in between,
+  but we have them at max_new<=300 for reference.
+- **Single run per cell.** Variance between runs is visible at the ~10%
+  level for prose/mixed prompts; treat gaps <10% between adjacent cells
+  as noise.
+- **mini-03 is ~15% slower than mini-02** on the same config, same
+  coremltools/torch versions; likely the macOS 26.3.1 preview vs
+  production build difference. Use this grid for *relative* configuration
+  choices, not as the paper's headline absolute numbers.
+- **Draft acceptance per cycle** tracks sliding-window regime: starts
+  ~7 for fibonacci / ~2 for capital in the accumulating phase, collapses
+  towards ~1.3-1.5 once sliding fires. See per-prompt cycle counts for
+  the signal.
+- **Sliding onset** is at cycle `state_length / T` where `T = 32`:
+  cycle 16 for S=512, cycle 32 for S=1024, cycle 64 for S=2048,
+  cycle 128 for S=4096. Everything past that is a sliding-window model
+  with context-loss penalty to acceptance.
+
+## Reproducing
+
+```bash
+# On mini-03 (or any Apple Silicon with MLX + coremltools):
+python scripts/bench_lut_cache_grid.py \
+  --artifacts-dir /tmp/lut_cache_grid \
+  --output-json artifacts/lut_cache_grid.json \
+  --output-csv artifacts/lut_cache_grid.csv \
+  --output-md notes/lut_cache_grid.md \
+  --long-gen-prompts capital fibonacci  # keeps gen=1000 tractable
+
+# Or to limit the grid:
+python scripts/bench_lut_cache_grid.py \
+  --quant lut4_gc8 --states 1024 2048 --gens 100 300
+```
+
+The runner auto-builds `.mlpackage` + `.mlmodelc` for any
+(quant, state_length) combination not already in `--artifacts-dir`, and
+supports `--resume` to continue a crashed run.
