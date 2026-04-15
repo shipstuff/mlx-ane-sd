@@ -135,24 +135,81 @@ output. Going beyond that trades mild text variance for throughput.
 
 ## ANE utilization saturated
 
-With the full-ANE stack, per-cycle ANE busy time:
+### Per-cycle compute breakdown (profiler-measured)
 
-| ANE op         | ms/cycle |
-|:---------------|---------:|
-| chunk 1        |    19.3  |
-| chunk 2        |    19.3  |
-| target lm_head |     3.2  |
-| draft predict  |     5.7  |
-| draft lm_head  |     3.1  |
-| **total ANE**  | **~50.6** |
+| hardware | ms/cycle | share | what it does |
+|:---------|---------:|------:|:-------------|
+| **ANE**  | **49.9** | **93.7%** | chunk 1 (19.3) + chunk 2 (19.3) + draft predict (5.7) + target lm_head (3.2) + draft lm_head (3.1) |
+| CPU      |    1.9   |   3.5%| MLMultiArray memcpy for cache sync/commit, host argmax (vDSP), RoPE table build, accept_check |
+| GPU      |    1.5   |   2.8%| token embed (0.5 ms), final RMSNorm (0.6 ms), noise embed (0.4 ms) |
+| **total**|   **53** |        |            |
 
-Per-cycle total: ~53 ms. ANE is ~96% of cycle — saturated. GPU does ~1
-ms of work (embed + norm). The hardware balance has flipped from the
-original 90% GPU / 10% ANE to ~2% GPU / 96% ANE.
+The hardware balance has flipped from the original 90% GPU / 10% ANE to
+~94% ANE / 3% GPU / 3% CPU.
 
-This has implications for multi-stream: ANE now serializes target work
-between streams. The previous GPU-bottleneck multi-stream ceiling no
-longer applies in the same way.
+### System-level during bench (sudo powermetrics, 500ms samples)
+
+Captured live while running the bench in a loop:
+
+| metric                         | value                | interpretation |
+|:-------------------------------|:--------------------:|:---------------|
+| GPU active residency           | **0.8–10%** (338 MHz only) | GPU is mostly idle — brief low-freq kernels for embed + norm |
+| GPU power                      | 2–40 mW              | effectively off (M4 Pro GPU max ≈ 15 W) |
+| CPU E-cluster active residency | 55–73%               | efficiency cores handle coordination |
+| CPU P1-cluster active residency| 25–45%               | performance cores for heavier async work |
+| CPU power                      | 180–630 mW (avg ~300)| modest — runs at low freqs (1–2.5 GHz mostly) |
+| ANE power (powermetrics)       | 0 mW (reported)      | **`ane_power` sampler reports 0 on this workload — a known reporting quirk, NOT actual idle.** Profiler's ~50 ms/cycle of ANE call latency is the real number. |
+
+### Interpreting the CPU load
+
+CPU E-cluster at 55–73% active residency looks high at first glance, but
+**it's coordination work, not compute**:
+
+- Swift async/await scheduling for CoreML predictions
+- MLMultiArray allocation + memcpy for KV cache sync, commit, conversions
+- CoreML feature-dict setup per call
+- Tokenizer ops + accept-check loop
+- Host-side vDSP argmax over `[1, 16, 151936]` fp16 logits
+
+The P-cores stay mostly at 1.3–2 GHz (not their 4.5 GHz max). CPU averages
+~300 mW out of a chip budget measured in tens of watts. Everything about
+the CPU picture says "doing small things frequently, at low frequency" —
+classic coordination pattern.
+
+### Implications for multi-stream
+
+**The bottleneck flipped from GPU to ANE.** In Phase 2 data (GPU lm_head +
+MLX target), multi-stream was GPU-bound: target_verify at 72 ms/cycle on
+GPU serialized across streams. Under 2 streams, aggregate was 1.28× solo
+(not 2×) because GPU couldn't keep up.
+
+Now:
+- **GPU is essentially free** (0.8–10% residency, 2–40 mW). It could host
+  a second stream's target_verify with minimal contention.
+- **ANE is ~94% utilized per stream**. Two streams on ANE would fully
+  serialize — aggregate near 1.0× (not 2×).
+- **CPU has headroom** at 300 mW / ~60% on E-cores. Could coordinate
+  many concurrent streams.
+
+So the **Phase C preservation pattern inverts**: instead of "ANE preserves
+throughput when GPU is contended", it becomes "**GPU preserves throughput
+when ANE is contended.**" This suggests a potential new play:
+
+- Stream A on the full-ANE stack (what we have now)
+- Stream B on the MLX target path (GPU-bound, previously "the slow path")
+- Both run concurrently since they use disjoint hardware
+
+Projected 2-stream aggregate in this layout:
+- Stream A (ANE): ~65 tok/s × 1.0 contention factor = ~65 tok/s
+- Stream B (GPU): ~43 tok/s × some contention factor
+- If GPU isn't contended by stream A (only 0.5-1 ms/cycle), stream B's
+  MLX forward stays near 72 ms/cycle → ~43 tok/s
+- **Aggregate: ~108 tok/s** (vs our best single-stream 65 tok/s)
+
+This is an open experiment, not measured. But the ANE 94% / GPU 3%
+distribution is a strong hint that heterogeneous routing between streams
+(not identical copies) could unlock more aggregate throughput than
+same-stack multi-streaming.
 
 ## Reproduction
 

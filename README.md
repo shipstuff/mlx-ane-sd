@@ -51,6 +51,36 @@ Beyond that, LUT6 palettization of all 36 layers introduces minor drift
 on open-ended prompts (near-tie argmax flips); text stays coherent and
 semantically valid.
 
+### Hardware utilization during bench
+
+Per-cycle compute distribution (profiler-measured, averaged across 4
+prompts):
+
+| hardware | ms/cycle | share | what it does |
+|:---------|---------:|------:|:-------------|
+| **ANE**  | 49.9     | **93.7%** | chunk 1 + chunk 2 + draft predict + both lm_heads |
+| CPU      |  1.9     |   3.5%    | MLMultiArray memcpy, host argmax, RoPE tables, accept_check |
+| GPU      |  1.5     |   2.8%    | token embed, final RMSNorm, noise embed |
+
+System-level during bench (`sudo powermetrics`):
+- **GPU**: 0.8–10% active residency at 338 MHz only; 2–40 mW (effectively
+  idle, M4 Pro GPU's 15 W budget is untouched).
+- **CPU E-cluster**: 55–73% residency, **CPU P1-cluster**: 25–45% residency;
+  ~180–630 mW total (avg ~300 mW). Load is **coordination**, not compute
+  — Swift async/await, CoreML setup, memory copies — P-cores stay at
+  1.3–2 GHz not 4.5 GHz max.
+- **ANE power via `powermetrics --samplers ane_power`**: reported 0 mW,
+  which is a known reporting artifact for this workload class. Profiler's
+  ~50 ms/cycle of ANE call latency is the real number.
+
+**The bottleneck flipped from GPU to ANE.** Previous multi-stream data
+(Phase 2) was GPU-bound; the Phase C preservation pattern (ANE preserves
+throughput under GPU load) now inverts — **GPU preserves throughput under
+ANE load**. An open experiment: heterogeneous routing where stream A
+runs full-ANE while stream B runs full-MLX could aggregate to ~108 tok/s
+(vs our 65 tok/s single-stream) since the two stacks use disjoint
+hardware. See [notes/2c_phase4_full_ane.md](./notes/2c_phase4_full_ane.md).
+
 See notes for the full journey:
 - [ane_lmhead_exploration.md](./notes/ane_lmhead_exploration.md) — ANE LUT6 lm_head, +20%
 - [draft_lut6_findings.md](./notes/draft_lut6_findings.md) — DFlash draft LUT6, 1.83× faster predict
