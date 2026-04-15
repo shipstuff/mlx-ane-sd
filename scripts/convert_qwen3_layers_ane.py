@@ -267,7 +267,7 @@ def main():
         convert_to="mlprogram",
         compute_units=ct.ComputeUnit.CPU_AND_NE,
         compute_precision=ct.precision.FLOAT16,
-        minimum_deployment_target=ct.target.macOS15,
+        minimum_deployment_target=ct.target.iOS18,  # required for per_grouped_channel LUT
     )
     print(f"[convert] done in {time.perf_counter()-t0:.1f}s")
     if fp16_pkg.exists():
@@ -275,10 +275,11 @@ def main():
     mlmodel.save(str(fp16_pkg))
 
     if not args.skip_lut6:
-        print(f"[palettize] LUT6 per_tensor (K={K}, may take {K*10}+s)...")
+        print(f"[palettize] LUT6 per_grouped_channel gs=16 (K={K}, may take {K*10}+s)...")
         config = cto.OptimizationConfig(
             global_config=cto.OpPalettizerConfig(
-                nbits=6, mode="kmeans", granularity="per_tensor"
+                nbits=6, mode="kmeans",
+                granularity="per_grouped_channel", group_size=16,
             )
         )
         t0 = time.perf_counter()
