@@ -38,9 +38,10 @@ EAGLE-3** because:
 
 | Config | Solo | w/ gemma-3-270m bg (moderate) | w/ Qwen3-4B bg (heavy) |
 |---|---:|---:|---:|
-| target-only (Qwen3-4B-Instruct-2507) | **16.61** | not run | 10.03 |
-| **EAGLE-3 (K=2, chain)**             | **10.83** | 11.29 | 6.17 |
-| EAGLE-3 speedup                     | 0.65× | — | 0.62× |
+| target-only (Qwen3-4B-Instruct-2507) | **17.72** | — | 10.03 |
+| **EAGLE-3 (K=2, chain)**             | **10.74** | 10.87 | 6.05 |
+| EAGLE-3 speedup                     | 0.61× | — | 0.60× |
+| EAGLE-3 slowdown under contention   | — | −1.2% | **−44%** |
 
 Side-by-side with the DFlash results from F.0 / F.1 (mini-02, plain
 Qwen3-4B-bf16 target; numbers from `notes/phaseF0_results.md`):
@@ -49,7 +50,7 @@ Qwen3-4B-bf16 target; numbers from `notes/phaseF0_results.md`):
 |---|---:|---:|---:|
 | DFlash GPU (F.0)                         | 40.92 | 21.21 | -48% |
 | DFlash ANE (F.1)                         | 34.68 | 19.62 | -43% |
-| EAGLE-3 chain (this work, Qwen3-4B-Instruct-2507) | 10.83 | 6.17 | -43% |
+| EAGLE-3 chain (this work, Qwen3-4B-Instruct-2507) | 10.74 | 6.05 | -44% |
 
 Three things stand out:
 
@@ -64,15 +65,31 @@ Three things stand out:
   on math) is roughly 10× lower than the paper's 2.08. This is the single
   biggest gap.
 
-## Per-prompt detail (solo K=2, greedy)
+## Per-prompt detail (solo K=2, greedy, final clean pass)
 
-| Prompt | tok/s | cycles | accepted | acc/cycle |
-|---|---:|---:|---:|---:|
-| capital    | 10.32 | 83 | 16 | 0.19 |
-| fibonacci  | 10.61 | 81 | 18 | 0.22 |
-| math       | 11.63 | 73 | 26 | 0.36 |
-| story      | 10.76 | 78 | 22 | 0.28 |
-| **mean**   | **10.83** | 78.8 | 20.5 | **0.26** |
+| Prompt | tok/s (solo) | tok/s (gemma bg) | tok/s (Qwen bg) | cycles | accepted | acc/cycle |
+|---|---:|---:|---:|---:|---:|---:|
+| capital    | 10.17 | 10.52 | 5.61 | 83 | 16 | 0.19 |
+| fibonacci  | 10.58 | 10.88 | 5.87 | 81 | 18 | 0.22 |
+| math       | 11.65 | 11.13 | 6.54 | 73 | 26 | 0.36 |
+| story      | 10.55 | 10.97 | 6.18 | 78 | 22 | 0.28 |
+| **mean**   | **10.74** | **10.87** | **6.05** | 78.8 | 20.5 | **0.26** |
+
+Target-only reference on the same box:
+
+| Prompt | tok/s (solo) | tok/s (Qwen bg) |
+|---|---:|---:|
+| capital    | 17.71 | 9.83 |
+| fibonacci  | 17.58 | 9.97 |
+| math       | 17.72 | 10.04 |
+| story      | 17.87 | 10.28 |
+| **mean**   | **17.72** | **10.03** |
+
+Cycle counts and acceptance patterns are **deterministic across runs**
+(same prompt, same target, greedy decode) — variance is only in wall-
+clock time, dominated by EXO / ollama resident daemons on mini-03. A
+two-pass warmup before the measured prompts cut inter-run variance from
+±2 tok/s to ±0.6 tok/s.
 
 Per-cycle target verify batch is K+1 = 3 positions. Each cycle nets
 `accepted + 1` tokens. At acc/cycle=0.26, that's 1.26 tokens per

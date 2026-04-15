@@ -409,8 +409,177 @@
           "per_call_ms": 41.66528763016686
         }
       ]
+    },
+    {
+      "state_length": 4096,
+      "max_new": 300,
+      "mean_tps": 16.390369361040786,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 300,
+          "seconds": 28.379795584012754,
+          "tps": 10.5709006645911,
+          "cycles": 142,
+          "accepted": 301,
+          "avg_accept_per_cycle": 2.119718309859155,
+          "per_call_ms": 44.77651347980087
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 300,
+          "seconds": 14.204384583979845,
+          "tps": 21.12023919278766,
+          "cycles": 81,
+          "accepted": 302,
+          "avg_accept_per_cycle": 3.728395061728395,
+          "per_call_ms": 44.77733231787742
+        },
+        {
+          "prompt": "math",
+          "tokens": 300,
+          "seconds": 14.3947015410522,
+          "tps": 20.84100174945837,
+          "cycles": 91,
+          "accepted": 300,
+          "avg_accept_per_cycle": 3.2967032967032965,
+          "per_call_ms": 43.319663490874916
+        },
+        {
+          "prompt": "story",
+          "tokens": 300,
+          "seconds": 23.024964875075966,
+          "tps": 13.029335837326014,
+          "cycles": 162,
+          "accepted": 300,
+          "avg_accept_per_cycle": 1.8518518518518519,
+          "per_call_ms": 40.075458326078035
+        }
+      ]
+    },
+    {
+      "state_length": 4096,
+      "max_new": 1000,
+      "mean_tps": 18.286227065806276,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 1000,
+          "seconds": 56.540027042035945,
+          "tps": 17.68658510291351,
+          "cycles": 322,
+          "accepted": 1006,
+          "avg_accept_per_cycle": 3.124223602484472,
+          "per_call_ms": 41.90792817830669
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 1000,
+          "seconds": 52.94964179198723,
+          "tps": 18.88586902869904,
+          "cycles": 290,
+          "accepted": 1001,
+          "avg_accept_per_cycle": 3.4517241379310346,
+          "per_call_ms": 43.166064658876635
+        }
+      ]
     }
   ],
-  "lut6_pt": [],
+  "lut6_pt": [
+    {
+      "state_length": 512,
+      "max_new": 100,
+      "mean_tps": 29.856966372299024,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 100,
+          "seconds": 5.6763982500415295,
+          "tps": 17.616804810914804,
+          "cycles": 56,
+          "accepted": 99,
+          "avg_accept_per_cycle": 1.7678571428571428,
+          "per_call_ms": 8.441360108138594
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 100,
+          "seconds": 1.4211674169637263,
+          "tps": 70.36468666981294,
+          "cycles": 14,
+          "accepted": 99,
+          "avg_accept_per_cycle": 7.071428571428571,
+          "per_call_ms": 8.482208442209023
+        },
+        {
+          "prompt": "math",
+          "tokens": 100,
+          "seconds": 4.770859582931735,
+          "tps": 20.96058336274679,
+          "cycles": 30,
+          "accepted": 99,
+          "avg_accept_per_cycle": 3.3,
+          "per_call_ms": 8.935966672531018
+        },
+        {
+          "prompt": "story",
+          "tokens": 100,
+          "seconds": 9.536715292022564,
+          "tps": 10.485790645721565,
+          "cycles": 53,
+          "accepted": 99,
+          "avg_accept_per_cycle": 1.8679245283018868,
+          "per_call_ms": 9.4880628693884
+        }
+      ]
+    },
+    {
+      "state_length": 512,
+      "max_new": 300,
+      "mean_tps": 13.597053484011122,
+      "prompts": [
+        {
+          "prompt": "capital",
+          "tokens": 300,
+          "seconds": 31.038511624909006,
+          "tps": 9.665411912317477,
+          "cycles": 156,
+          "accepted": 299,
+          "avg_accept_per_cycle": 1.9166666666666667,
+          "per_call_ms": 9.034591341146436
+        },
+        {
+          "prompt": "fibonacci",
+          "tokens": 300,
+          "seconds": 20.69103820808232,
+          "tps": 14.499030787291003,
+          "cycles": 103,
+          "accepted": 299,
+          "avg_accept_per_cycle": 2.9029126213592233,
+          "per_call_ms": 8.492128291727921
+        },
+        {
+          "prompt": "math",
+          "tokens": 300,
+          "seconds": 18.96385083300993,
+          "tps": 15.819571807525351,
+          "cycles": 108,
+          "accepted": 299,
+          "avg_accept_per_cycle": 2.7685185185185186,
+          "per_call_ms": 8.430874935584143
+        },
+        {
+          "prompt": "story",
+          "tokens": 300,
+          "seconds": 20.827259541954845,
+          "tps": 14.404199428910657,
+          "cycles": 175,
+          "accepted": 299,
+          "avg_accept_per_cycle": 1.7085714285714286,
+          "per_call_ms": 8.330797133302049
+        }
+      ]
+    }
+  ],
   "lut4_gc8": []
 }

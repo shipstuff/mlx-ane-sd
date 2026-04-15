@@ -106,26 +106,50 @@ class DFlashANEMultiFnDraft:
         return {"cos_q": cos_q, "sin_q": sin_q, "cos_k": cos_k, "sin_k": sin_k}
 
     def _pick_variant(self):
-        """Choose which compiled variant to call this cycle."""
-        if self.write_pos + self.T <= self.state_length:
-            vname = f"write_{self.write_pos}"
-            if vname in self.variants:
-                return vname, False
-        # Fallback: sliding / rotate. Caller will shift cache left by T before
-        # passing to the model.
-        return "rotate", True
+        """Choose which compiled variant to call this cycle.
+
+        Python maintains write_pos via accumcache semantics (advance by
+        committed). Multi-function variants are baked at write_pos values
+        {0, T, 2T, ..., STATE_LEN-T}. We pick the smallest baked_wp such that
+        baked_wp >= write_pos, so the model's attend scope [0, baked_wp + T)
+        covers at least the valid prefix [0, write_pos + T).
+
+        Stale/empty cache positions [write_pos, baked_wp) within the attended
+        prefix are masked out via `causal_mask`.
+        """
+        # Round write_pos UP to nearest multiple of T.
+        baked_wp = ((self.write_pos + self.T - 1) // self.T) * self.T
+        if baked_wp > self.state_length - self.T:
+            return "rotate", True, None
+        vname = f"write_{baked_wp}"
+        if vname in self.variants:
+            return vname, False, baked_wp
+        return "rotate", True, None
 
     def forward(self, noise_emb: np.ndarray, target_hidden: np.ndarray, s_real: int):
         """Runs the draft forward. Returns hidden, new_K, new_V.
         Caller must call commit(...) AFTER target verify to advance write_pos."""
-        vname, is_rotate = self._pick_variant()
-        attend_len = self.state_length if is_rotate else (self.write_pos + self.T)
+        pick = self._pick_variant()
+        vname, is_rotate, baked_wp = pick
+        if is_rotate:
+            attend_len = self.state_length
+        else:
+            attend_len = baked_wp + self.T
 
-        # For rotate: don't pre-shift Python-side. Model does the shift via
-        # narrow(cache, 2, T, S-T) + cat(new_k). We commit the shifted cache
-        # after the call.
-
+        # Build mask. For non-rotate: invalidate cache positions [write_pos, baked_wp)
+        # that are stale (next cycles' writes will be at those slots or beyond).
+        # For the new K/V ctx-padding positions [write_pos + s_real, write_pos + ctx_size),
+        # we also mark as invalid: those correspond to zero-padded ctx entries.
         mask = np.zeros((1, 1, self.block_size, attend_len), dtype=np.float16)
+        if not is_rotate:
+            # Invalidate the PAST-cache "stale" region: [write_pos, baked_wp).
+            # These are positions the model will include in its concat but
+            # Python hasn't written valid content there.
+            if baked_wp > self.write_pos:
+                mask[0, 0, :, self.write_pos:baked_wp] = -np.inf
+            # Invalidate the NEW-K "ctx padding" region: [baked_wp + s_real, baked_wp + ctx_size).
+            if s_real < self.ctx_size:
+                mask[0, 0, :, baked_wp + s_real:baked_wp + self.ctx_size] = -np.inf
 
         inputs = {
             "noise_embedding": noise_emb,
@@ -146,27 +170,27 @@ class DFlashANEMultiFnDraft:
         return out["hidden"], out["new_K"], out["new_V"]
 
     def commit(self, new_K: np.ndarray, new_V: np.ndarray, s_real: int, accepted: int):
-        """Splice the new K/V into Python cache and advance write_pos.
+        """Splice the new K/V into Python cache at baked_wp, then advance
+        write_pos by `committed` (accumcache semantics)."""
+        committed = s_real + accepted + 1
 
-        Multi-function variants are at T-aligned positions only. We advance
-        write_pos AND global_offset by T each cycle so RoPE positions align
-        with cache slots. This inflates "absolute positions" in RoPE space
-        (they outrun real token count) but the relative structure within the
-        draft's attention is preserved -- RoPE shift is constant across Q/K.
-        """
-        vname, is_rotate = self._pick_variant()
+        pick = self._pick_variant()
+        _, is_rotate, baked_wp = pick
         if is_rotate:
+            # Sliding: shift cache left by T and place new K/V at tail.
             self.cache_K = np.concatenate([self.cache_K[:, :, self.T:, :], new_K], axis=2)
             self.cache_V = np.concatenate([self.cache_V[:, :, self.T:, :], new_V], axis=2)
             self.write_pos = self.state_length - self.T
         else:
-            wp = self.write_pos
-            self.cache_K[:, :, wp:wp + self.T, :] = new_K
-            self.cache_V[:, :, wp:wp + self.T, :] = new_V
-            self.write_pos += self.T
-        # global_offset advances by T each cycle to match cache slot abs-pos.
-        # This means absolute RoPE positions = cycle_idx * T, not commit count.
-        self.global_offset += self.T
+            # Write at the variant's baked_wp. This aligns the cache layout
+            # with what the model's attention scope covers. After the write,
+            # advance write_pos by `committed` so next cycle may still fit in
+            # the current or a later variant.
+            self.cache_K[:, :, baked_wp:baked_wp + self.T, :] = new_K
+            self.cache_V[:, :, baked_wp:baked_wp + self.T, :] = new_V
+            self.write_pos = baked_wp + committed
+        # RoPE offset advances by `committed` (true absolute text positions).
+        self.global_offset += committed
 
 
 def pad_or_truncate_ctx(hidden_mx, ctx_size):
