@@ -61,13 +61,16 @@ struct DFlashSDRunner: AsyncParsableCommand {
     @Option(help: "JSON profile output path (optional)")
     var profileOut: String = ""
 
+    @Flag(help: "Emit a single-line JSON summary on stdout (for benchmark harnesses)")
+    var json: Bool = false
+
     func run() async throws {
         let profiler = Profiler()
         profiler.begin("total_wall")
 
         // Parse capture indices
         let captureIndices = captureAt.split(separator: ",").compactMap { Int($0) }
-        print("[sd] capture_at=\(captureIndices), block_size=16, state_length=\(stateLength)")
+        if !self.json { print("[sd] capture_at=\(captureIndices), block_size=16, state_length=\(stateLength)") }
 
         // Register our inspectable Qwen3 model
         await LLMTypeRegistry.shared.registerModelType("qwen3") { data in
@@ -76,7 +79,7 @@ struct DFlashSDRunner: AsyncParsableCommand {
         }
 
         // Load target via HF
-        print("[sd] loading target \(target)...")
+        if !self.json { print("[sd] loading target \(target)...") }
         let tTargetLoad = CFAbsoluteTimeGetCurrent()
         let downloader: Downloader = #hubDownloader()
         let tokenizerLoader: TokenizerLoader = #huggingFaceTokenizerLoader()
@@ -84,18 +87,22 @@ struct DFlashSDRunner: AsyncParsableCommand {
             from: downloader, using: tokenizerLoader,
             configuration: ModelConfiguration(id: target)
         ) { _ in }
-        print(String(format: "[sd] target loaded in %.1fs",
-                      CFAbsoluteTimeGetCurrent() - tTargetLoad))
+        if !self.json {
+            print(String(format: "[sd] target loaded in %.1fs",
+                         CFAbsoluteTimeGetCurrent() - tTargetLoad))
+        }
 
         // Load draft
-        print("[sd] loading draft \(draft)...")
+        if !self.json { print("[sd] loading draft \(draft)...") }
         let draftConfig = DraftConfig(stateLength: stateLength)
         let tDraftLoad = CFAbsoluteTimeGetCurrent()
         let draftModel = try DFlashANEDraft(mlmodelcPath: draft,
                                              config: draftConfig,
                                              profiler: profiler)
-        print(String(format: "[sd] draft loaded in %.2fs",
-                      CFAbsoluteTimeGetCurrent() - tDraftLoad))
+        if !self.json {
+            print(String(format: "[sd] draft loaded in %.2fs",
+                         CFAbsoluteTimeGetCurrent() - tDraftLoad))
+        }
 
         // Run inside the container's context
         try await container.perform { context in
@@ -131,6 +138,7 @@ struct DFlashSDRunner: AsyncParsableCommand {
             var hiddenConcat = MLX.concatenated(prefillCaptures, axis: -1)  // [1, T, concat_dim]
             var generated = [Int(bonus)]
             var cycles = 0
+            var acceptedTotal = 0
 
             // Decode loop
             draftModel.resetCache()
@@ -170,18 +178,19 @@ struct DFlashSDRunner: AsyncParsableCommand {
                     sReal: sReal
                 )
 
-                // Apply target.lmHead to draft hidden for draft_logits
+                // Apply target.lmHead to draft hidden for draft_logits.
+                // Only positions [1-bs:] are the draft's predictions, so slice first
+                // to avoid wasting 1 position of lm_head compute (~6% of the matmul).
                 profiler.begin("draft_lmhead")
                 let draftHiddenMLX = try mlMultiArrayToMLX(draftOut.hidden)
+                let hiddenSlice = draftHiddenMLX[0..., (1 - bs)..., 0...]
                 let draftLogits: MLXArray
                 if let lmHead = model.lmHead {
-                    draftLogits = lmHead(draftHiddenMLX)
+                    draftLogits = lmHead(hiddenSlice)
                 } else {
-                    draftLogits = model.model.embedTokens.asLinear(draftHiddenMLX)
+                    draftLogits = model.model.embedTokens.asLinear(hiddenSlice)
                 }
-                // Slice to positions [1-bs:] = last bs-1 (draft's predictions)
-                let draftLogitsSlice = draftLogits[0..., (1 - bs)..., 0...]
-                let draftTokens = draftLogitsSlice.argMax(axis: -1)
+                let draftTokens = draftLogits.argMax(axis: -1)
                 draftTokens.asArray(Int32.self)
                 profiler.end("draft_lmhead")
 
@@ -221,6 +230,7 @@ struct DFlashSDRunner: AsyncParsableCommand {
                 generated.append(contentsOf: newTokens.prefix(self.maxNew - n))
                 n += min(newTokens.count, self.maxNew - n)
                 cycles += 1
+                acceptedTotal += accepted + 1  // match Python F.1: count committed (draft + bonus)
 
                 if self.verbose {
                     print("[sd] cycle \(cycles): accepted \(accepted)/\(bs-1), committed \(newTokens.count), n=\(n)")
@@ -249,21 +259,53 @@ struct DFlashSDRunner: AsyncParsableCommand {
             profiler.end("total_wall")
 
             // Report
-            print("")
-            print("[sd] generated \(generated.count) tokens in \(cycles) cycles")
             let decoded = context.tokenizer.decode(tokenIds: generated, skipSpecialTokens: true)
-            print("[sd] output: \(decoded.prefix(120))")
-
-            let totalWall = profiler.snapshot().totalMs
+            let snap = profiler.snapshot()
+            let totalWall = snap.totalMs
+            let decodeMs = snap.phases["decode_total"]?.totalMs ?? totalWall
             let tps = Double(generated.count) / (totalWall / 1000)
-            print(String(format: "[sd] total wall: %.1f s, %.2f tok/s", totalWall / 1000, tps))
+            let decodeTps = Double(generated.count) / (decodeMs / 1000)
 
-            profiler.printSummary()
+            if self.json {
+                // Single-line JSON on stdout for benchmark harnesses.
+                var phaseStats: [String: [String: Double]] = [:]
+                for (name, s) in snap.phases {
+                    phaseStats[name] = [
+                        "calls": Double(s.calls),
+                        "totalMs": s.totalMs,
+                        "meanMs": s.meanMs,
+                        "minMs": s.minMs == .infinity ? 0 : s.minMs,
+                        "maxMs": s.maxMs,
+                    ]
+                }
+                let payload: [String: Any] = [
+                    "tokens": generated.count,
+                    "cycles": cycles,
+                    "accepted_total": acceptedTotal,
+                    "avg_accepted_per_cycle": cycles > 0 ? Double(acceptedTotal) / Double(cycles) : 0,
+                    "total_wall_ms": totalWall,
+                    "decode_ms": decodeMs,
+                    "tok_per_s_wall": tps,
+                    "tok_per_s_decode": decodeTps,
+                    "text": decoded,
+                    "phases": phaseStats,
+                ]
+                let data = try JSONSerialization.data(withJSONObject: payload, options: [])
+                print(String(data: data, encoding: .utf8)!)
+            } else {
+                print("")
+                print("[sd] generated \(generated.count) tokens in \(cycles) cycles "
+                    + "(accepted \(acceptedTotal), avg/cycle \(String(format: "%.2f", cycles > 0 ? Double(acceptedTotal) / Double(cycles) : 0)))")
+                print("[sd] output: \(decoded.prefix(120))")
+                print(String(format: "[sd] wall: %.1f s, %.2f tok/s | decode: %.2f s, %.2f tok/s",
+                             totalWall / 1000, tps, decodeMs / 1000, decodeTps))
+                profiler.printSummary()
+            }
 
             if !self.profileOut.isEmpty {
                 let url = URL(fileURLWithPath: self.profileOut)
                 try profiler.writeJSON(to: url)
-                print("[sd] profile written to \(self.profileOut)")
+                if !self.json { print("[sd] profile written to \(self.profileOut)") }
             }
         }
     }

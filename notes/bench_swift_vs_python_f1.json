@@ -1,0 +1,482 @@
+[
+  {
+    "tokens": 100,
+    "cycles": 56,
+    "accepted_total": 99,
+    "avg_accepted_per_cycle": 1.7678571428571428,
+    "decode_ms": 5764.499958138913,
+    "total_wall_ms": 5848.881041863933,
+    "tok_per_s_decode": 17.347558457140714,
+    "tok_per_s_wall": 17.097287375865623,
+    "prefill_ms": 84.06825014390051,
+    "text": " its art museums, historic architecture, and vibrant cultural scene. The city is home to the Eiffel Tower, the Louvre Museum, and the Notre-Dame Cathedral. Paris is also a major center for fashion and design, with many high-end fashion houses based there. The city is known for its cuisine, with famous dishes such as coq au vin and bouillabaisse. Paris is a popular tourist destination and is often considered one of the most beautiful cities in the world. \n\n",
+    "name": "capital",
+    "impl": "python_f1"
+  },
+  {
+    "tokens": 100,
+    "cycles": 14,
+    "accepted_total": 99,
+    "avg_accepted_per_cycle": 7.071428571428571,
+    "decode_ms": 1445.2052910346538,
+    "total_wall_ms": 1542.405999964103,
+    "tok_per_s_decode": 69.19432181735775,
+    "tok_per_s_wall": 64.83377269170849,
+    "prefill_ms": 96.820083912462,
+    "text": "\n\n# Output:\n# fib(0) = 0\n# fib(1) = 1\n# fib(2) = 1\n# fib(3) = 2\n# fib(4) = 3\n# fib(5) = 5\n# fib(6) = 8\n# fib(7) = 13\n# fib(8) = 21\n# fib(9) = 34\n\n# This",
+    "name": "fibonacci",
+    "impl": "python_f1"
+  },
+  {
+    "tokens": 100,
+    "cycles": 28,
+    "accepted_total": 99,
+    "avg_accepted_per_cycle": 3.5357142857142856,
+    "decode_ms": 2885.131417075172,
+    "total_wall_ms": 2980.9210419189185,
+    "tok_per_s_decode": 34.66046621244585,
+    "tok_per_s_wall": 33.54667855798913,
+    "prefill_ms": 95.49691714346409,
+    "text": " 3y = 20 + 7 = 27; y = 27/3 = 9. So, x = 6 and y = 9. Is this correct? Let me check. For x: 2(6) + 5 = 12 + 5 = 17. Correct. For y: 3(9) - 7 = 27 - 7 = 20. Correct. So, the answer",
+    "name": "math",
+    "impl": "python_f1"
+  },
+  {
+    "tokens": 100,
+    "cycles": 52,
+    "accepted_total": 99,
+    "avg_accepted_per_cycle": 1.9038461538461537,
+    "decode_ms": 5356.464375043288,
+    "total_wall_ms": 5442.19324993901,
+    "tok_per_s_decode": 18.66903109930454,
+    "tok_per_s_wall": 18.37494469736456,
+    "prefill_ms": 85.43074992485344,
+    "text": " was known for her extraordinary ability to see the future. The villagers often sought her out for guidance, and she would always provide them with clear and insightful answers. However, one day, a strange phenomenon began to occur. The visions that Elara received were becoming more and more distorted, and she could no longer see the future with the same clarity. The villagers were worried and began to question her abilities. Elara, too, was confused and frustrated, as she could not understand why her visions were",
+    "name": "story",
+    "impl": "python_f1"
+  },
+  {
+    "phases": {
+      "total_wall": {
+        "meanMs": 6708.602070808411,
+        "totalMs": 6708.602070808411,
+        "maxMs": 6708.602070808411,
+        "calls": 1,
+        "minMs": 6708.602070808411
+      },
+      "draft_lmhead": {
+        "maxMs": 43.635010719299316,
+        "calls": 57,
+        "meanMs": 19.37771052644964,
+        "totalMs": 1104.5295000076294,
+        "minMs": 18.496990203857422
+      },
+      "target_verify": {
+        "maxMs": 73.2649564743042,
+        "totalMs": 4121.337056159973,
+        "minMs": 71.6320276260376,
+        "calls": 57,
+        "meanMs": 72.30415887999953
+      },
+      "accept_check": {
+        "calls": 57,
+        "meanMs": 0.0010749749970017817,
+        "minMs": 0,
+        "maxMs": 0.0020265579223632812,
+        "totalMs": 0.06127357482910156
+      },
+      "draft_cache_commit": {
+        "calls": 57,
+        "meanMs": 0.04683670244718853,
+        "minMs": 0.03707408905029297,
+        "maxMs": 0.06091594696044922,
+        "totalMs": 2.669692039489746
+      },
+      "draft_rope_build": {
+        "totalMs": 1.4988183975219727,
+        "meanMs": 0.02629505960564864,
+        "minMs": 0.02300739288330078,
+        "calls": 57,
+        "maxMs": 0.031948089599609375
+      },
+      "noise_embed": {
+        "calls": 57,
+        "totalMs": 8.812189102172852,
+        "minMs": 0.12505054473876953,
+        "maxMs": 0.24199485778808594,
+        "meanMs": 0.15459980881005003
+      },
+      "draft_predict": {
+        "maxMs": 18.444061279296875,
+        "meanMs": 10.084844472115499,
+        "minMs": 9.83893871307373,
+        "calls": 57,
+        "totalMs": 574.8361349105835
+      },
+      "mlx_to_coreml": {
+        "meanMs": 0.3815408338580215,
+        "calls": 57,
+        "minMs": 0.30601024627685547,
+        "maxMs": 1.0939836502075195,
+        "totalMs": 21.747827529907227
+      },
+      "decode_total": {
+        "maxMs": 5850.125074386597,
+        "meanMs": 5850.125074386597,
+        "totalMs": 5850.125074386597,
+        "calls": 1,
+        "minMs": 5850.125074386597
+      },
+      "target_prefill": {
+        "maxMs": 100.95405578613281,
+        "calls": 1,
+        "totalMs": 100.95405578613281,
+        "meanMs": 100.95405578613281,
+        "minMs": 100.95405578613281
+      },
+      "draft_mask_build": {
+        "meanMs": 0.0023444493611653647,
+        "calls": 57,
+        "minMs": 0.0010728836059570312,
+        "maxMs": 0.0040531158447265625,
+        "totalMs": 0.13363361358642578
+      },
+      "target_cache_trim": {
+        "calls": 57,
+        "totalMs": 0.0795125961303711,
+        "meanMs": 0.0013949578268486157,
+        "maxMs": 0.006079673767089844,
+        "minMs": 0
+      }
+    },
+    "decode_ms": 5850.125074386597,
+    "tok_per_s_decode": 17.09365162769367,
+    "tok_per_s_wall": 14.905655355122466,
+    "cycles": 57,
+    "total_wall_ms": 6708.863019943237,
+    "tokens": 100,
+    "text": " its art museums, historic architecture, and vibrant cultural scene. The city is home to the Eiffel Tower, the Louvre Museum, and the Notre-Dame Cathedral. Paris is also a major center for fashion and design, with many high-end fashion houses based there. The city is known for its cuisine, with famous dishes such as coq au vin and bouillabaisse. Paris is a popular tourist destination and is often considered one of the most beautiful cities in the world. \n\n",
+    "accepted_total": 99,
+    "avg_accepted_per_cycle": 1.736842105263158,
+    "name": "capital",
+    "impl": "swift_dflash_sd"
+  },
+  {
+    "accepted_total": 99,
+    "tok_per_s_wall": 43.84753350149396,
+    "text": "\n\n# Output:\n# fib(0) = 0\n# fib(1) = 1\n# fib(2) = 1\n# fib(3) = 2\n# fib(4) = 3\n# fib(5) = 5\n# fib(6) = 8\n# fib(7) = 13\n# fib(8) = 21\n# fib(9) = 34\n\n# This",
+    "tok_per_s_decode": 68.16920600495645,
+    "cycles": 14,
+    "avg_accepted_per_cycle": 7.071428571428571,
+    "phases": {
+      "draft_cache_commit": {
+        "totalMs": 0.6480216979980469,
+        "maxMs": 0.07092952728271484,
+        "calls": 14,
+        "meanMs": 0.04628726414271763,
+        "minMs": 0.03910064697265625
+      },
+      "draft_predict": {
+        "meanMs": 10.668132986341204,
+        "minMs": 9.923934936523438,
+        "maxMs": 18.95308494567871,
+        "calls": 14,
+        "totalMs": 149.35386180877686
+      },
+      "target_prefill": {
+        "calls": 1,
+        "totalMs": 121.9559907913208,
+        "meanMs": 121.9559907913208,
+        "minMs": 121.9559907913208,
+        "maxMs": 121.9559907913208
+      },
+      "mlx_to_coreml": {
+        "totalMs": 6.23321533203125,
+        "meanMs": 0.4452296665736607,
+        "calls": 14,
+        "minMs": 0.31006336212158203,
+        "maxMs": 1.0919570922851562
+      },
+      "decode_total": {
+        "maxMs": 1466.9380187988281,
+        "minMs": 1466.9380187988281,
+        "calls": 1,
+        "meanMs": 1466.9380187988281,
+        "totalMs": 1466.9380187988281
+      },
+      "noise_embed": {
+        "meanMs": 0.1599022320338658,
+        "calls": 14,
+        "minMs": 0.13494491577148438,
+        "totalMs": 2.238631248474121,
+        "maxMs": 0.20301342010498047
+      },
+      "draft_rope_build": {
+        "minMs": 0.02205371856689453,
+        "meanMs": 0.028065272739955356,
+        "maxMs": 0.033020973205566406,
+        "totalMs": 0.392913818359375,
+        "calls": 14
+      },
+      "target_cache_trim": {
+        "calls": 10,
+        "meanMs": 0.0017046928405761719,
+        "minMs": 0.00095367431640625,
+        "maxMs": 0.007033348083496094,
+        "totalMs": 0.01704692840576172
+      },
+      "target_verify": {
+        "meanMs": 72.55086728504726,
+        "minMs": 71.93899154663086,
+        "totalMs": 1015.7121419906616,
+        "maxMs": 73.7689733505249,
+        "calls": 14
+      },
+      "draft_lmhead": {
+        "calls": 14,
+        "totalMs": 288.6521816253662,
+        "minMs": 18.87798309326172,
+        "meanMs": 20.618012973240443,
+        "maxMs": 41.69809818267822
+      },
+      "draft_mask_build": {
+        "maxMs": 0.0059604644775390625,
+        "totalMs": 0.03802776336669922,
+        "meanMs": 0.002716268811907087,
+        "calls": 14,
+        "minMs": 0.00095367431640625
+      },
+      "total_wall": {
+        "calls": 1,
+        "totalMs": 2280.4659605026245,
+        "meanMs": 2280.4659605026245,
+        "minMs": 2280.4659605026245,
+        "maxMs": 2280.4659605026245
+      },
+      "accept_check": {
+        "calls": 14,
+        "totalMs": 0.010132789611816406,
+        "minMs": 0,
+        "meanMs": 0.0007237706865583147,
+        "maxMs": 0.0010728836059570312
+      }
+    },
+    "total_wall_ms": 2280.6299924850464,
+    "tokens": 100,
+    "decode_ms": 1466.9380187988281,
+    "name": "fibonacci",
+    "impl": "swift_dflash_sd"
+  },
+  {
+    "cycles": 29,
+    "tok_per_s_wall": 26.69775025377415,
+    "tok_per_s_decode": 33.351676486104495,
+    "total_wall_ms": 3745.6339597702026,
+    "accepted_total": 99,
+    "tokens": 100,
+    "decode_ms": 2998.3500242233276,
+    "avg_accepted_per_cycle": 3.413793103448276,
+    "text": " 3y = 20 + 7 = 27; y = 27/3 = 9. So, x = 6 and y = 9. Is this correct? Let me check. For x: 2(6) + 5 = 12 + 5 = 17. Correct. For y: 3(9) - 7 = 27 - 7 = 20. Correct. So, the answer",
+    "phases": {
+      "target_prefill": {
+        "maxMs": 120.85700035095215,
+        "totalMs": 120.85700035095215,
+        "meanMs": 120.85700035095215,
+        "minMs": 120.85700035095215,
+        "calls": 1
+      },
+      "draft_lmhead": {
+        "meanMs": 19.783973693847656,
+        "minMs": 18.88906955718994,
+        "maxMs": 42.770981788635254,
+        "totalMs": 573.735237121582,
+        "calls": 29
+      },
+      "target_verify": {
+        "calls": 29,
+        "totalMs": 2100.6879806518555,
+        "maxMs": 73.59600067138672,
+        "minMs": 71.83599472045898,
+        "meanMs": 72.43751657420191
+      },
+      "noise_embed": {
+        "calls": 29,
+        "minMs": 0.12803077697753906,
+        "maxMs": 0.19598007202148438,
+        "totalMs": 4.5462846755981445,
+        "meanMs": 0.15676843708959118
+      },
+      "mlx_to_coreml": {
+        "calls": 29,
+        "meanMs": 0.4109185317466999,
+        "totalMs": 11.916637420654297,
+        "minMs": 0.30493736267089844,
+        "maxMs": 1.0819435119628906
+      },
+      "draft_mask_build": {
+        "maxMs": 0.0059604644775390625,
+        "minMs": 0.0020265579223632812,
+        "calls": 29,
+        "meanMs": 0.002634936365587958,
+        "totalMs": 0.07641315460205078
+      },
+      "accept_check": {
+        "maxMs": 0.0010728836059570312,
+        "meanMs": 0.000719366402461611,
+        "minMs": 0,
+        "totalMs": 0.02086162567138672,
+        "calls": 29
+      },
+      "draft_cache_commit": {
+        "minMs": 0.03802776336669922,
+        "totalMs": 1.3486146926879883,
+        "calls": 29,
+        "meanMs": 0.04650395492027546,
+        "maxMs": 0.06401538848876953
+      },
+      "total_wall": {
+        "calls": 1,
+        "maxMs": 3745.447039604187,
+        "totalMs": 3745.447039604187,
+        "meanMs": 3745.447039604187,
+        "minMs": 3745.447039604187
+      },
+      "draft_rope_build": {
+        "calls": 29,
+        "minMs": 0.02396106719970703,
+        "totalMs": 0.7970333099365234,
+        "meanMs": 0.027483907239190464,
+        "maxMs": 0.032067298889160156
+      },
+      "draft_predict": {
+        "calls": 29,
+        "maxMs": 19.718050956726074,
+        "meanMs": 10.26800172082309,
+        "totalMs": 297.77204990386963,
+        "minMs": 9.801030158996582
+      },
+      "target_cache_trim": {
+        "maxMs": 0.006079673767089844,
+        "minMs": 0.00095367431640625,
+        "calls": 29,
+        "meanMs": 0.0013852941578832165,
+        "totalMs": 0.04017353057861328
+      },
+      "decode_total": {
+        "meanMs": 2998.3500242233276,
+        "calls": 1,
+        "minMs": 2998.3500242233276,
+        "totalMs": 2998.3500242233276,
+        "maxMs": 2998.3500242233276
+      }
+    },
+    "name": "math",
+    "impl": "swift_dflash_sd"
+  },
+  {
+    "tok_per_s_wall": 16.18520271867001,
+    "total_wall_ms": 6178.483009338379,
+    "tok_per_s_decode": 18.651208067339056,
+    "text": " was known for her extraordinary ability to see the future. The villagers often sought her out for guidance, and she would always provide them with clear and insightful answers. However, one day, a strange phenomenon began to occur. The visions that Elara received were becoming more and more distorted, and she could no longer see the future with the same clarity. The villagers were worried and began to question her abilities. Elara, too, was confused and frustrated, as she could not understand why her visions were",
+    "tokens": 100,
+    "avg_accepted_per_cycle": 1.9038461538461537,
+    "cycles": 52,
+    "decode_ms": 5361.58299446106,
+    "accepted_total": 99,
+    "phases": {
+      "target_prefill": {
+        "meanMs": 104.01701927185059,
+        "totalMs": 104.01701927185059,
+        "minMs": 104.01701927185059,
+        "maxMs": 104.01701927185059,
+        "calls": 1
+      },
+      "draft_cache_commit": {
+        "meanMs": 0.04720000120309683,
+        "minMs": 0.03802776336669922,
+        "maxMs": 0.06902217864990234,
+        "calls": 52,
+        "totalMs": 2.454400062561035
+      },
+      "target_cache_trim": {
+        "totalMs": 0.09965896606445312,
+        "meanMs": 0.00191651857816256,
+        "maxMs": 0.010013580322265625,
+        "calls": 52,
+        "minMs": 0.00095367431640625
+      },
+      "noise_embed": {
+        "maxMs": 0.247955322265625,
+        "calls": 52,
+        "totalMs": 8.279919624328613,
+        "meanMs": 0.15922922354478103,
+        "minMs": 0.13697147369384766
+      },
+      "accept_check": {
+        "calls": 52,
+        "maxMs": 0.0020265579223632812,
+        "minMs": 0,
+        "totalMs": 0.041604042053222656,
+        "meanMs": 0.0008000777317927434
+      },
+      "total_wall": {
+        "calls": 1,
+        "totalMs": 6178.191065788269,
+        "maxMs": 6178.191065788269,
+        "minMs": 6178.191065788269,
+        "meanMs": 6178.191065788269
+      },
+      "draft_mask_build": {
+        "calls": 52,
+        "meanMs": 0.0025194424849290112,
+        "minMs": 0.00095367431640625,
+        "maxMs": 0.006079673767089844,
+        "totalMs": 0.1310110092163086
+      },
+      "target_verify": {
+        "minMs": 71.8470811843872,
+        "meanMs": 72.63804628298833,
+        "totalMs": 3777.178406715393,
+        "maxMs": 75.89399814605713,
+        "calls": 52
+      },
+      "decode_total": {
+        "calls": 1,
+        "meanMs": 5361.58299446106,
+        "totalMs": 5361.58299446106,
+        "minMs": 5361.58299446106,
+        "maxMs": 5361.58299446106
+      },
+      "draft_predict": {
+        "minMs": 9.831070899963379,
+        "maxMs": 19.025087356567383,
+        "totalMs": 528.1224250793457,
+        "meanMs": 10.156200482295109,
+        "calls": 52
+      },
+      "draft_lmhead": {
+        "totalMs": 1009.5703601837158,
+        "minMs": 18.601059913635254,
+        "calls": 52,
+        "maxMs": 41.249990463256836,
+        "meanMs": 19.41481461891761
+      },
+      "draft_rope_build": {
+        "calls": 52,
+        "maxMs": 0.10097026824951172,
+        "meanMs": 0.028983904765202448,
+        "totalMs": 1.5071630477905273,
+        "minMs": 0.02300739288330078
+      },
+      "mlx_to_coreml": {
+        "totalMs": 20.505189895629883,
+        "calls": 52,
+        "maxMs": 1.0939836502075195,
+        "meanMs": 0.3943305749159593,
+        "minMs": 0.3249645233154297
+      }
+    },
+    "name": "story",
+    "impl": "swift_dflash_sd"
+  }
+]
