@@ -86,5 +86,86 @@ single biggest remaining bottleneck. But it's ~4 days of careful engineering
 (vs 1-2 days for most of today's wins). Worth it if we're committed to the
 heterogeneous-SD research narrative; maybe not if we're close to a writeup.
 
-**Next decision point for user:** commit to 2c full implementation, or
-document findings and transition to paper writeup.
+---
+
+## Phase 1 complete: K-scan validates the direction
+
+Extended `scripts/convert_qwen3_layers_ane.py` to convert K chained
+Qwen3-4B layers to CoreML with external KV cache pattern and optional
+capture-layer outputs. Per-layer latency amortizes better at larger K:
+
+| K  | LUT6 size  | measured  | ms/layer | ANE ops  | outcome |
+|---:|-----------:|----------:|---------:|:---------|:--------|
+| 1  |    72 MB   |   1.55 ms |     1.55 | 100% ANE | ✓       |
+| 5  |   361 MB   |   5.35 ms |     1.07 | 100% ANE | ✓       |
+| 10 |   722 MB   |  10.33 ms |     1.03 | 100% ANE | ✓       |
+| 18 |   1.3 GB   |  18.53 ms |     1.03 | 100% ANE | ✓       |
+| **36** | **2.6 GB** | **112 ms** | **3.11** | **0% ANE (CPU fallback)** | ❌ |
+
+### Key finding: ANE single-blob limit is ~1.5-2 GB
+
+K=18 at 1.3 GB fits. K=36 at 2.6 GB falls back to CPU. So **full-target-on-ANE
+requires chunking** into multiple CoreML models, each < 1.5 GB. anemll-qwen35
+uses this pattern (multi-function CoreML bundle with shared-weight chunks).
+
+### Revised full-target projection (chunked)
+
+**2 × K=18 chunks** (1.3 GB each, easy fit):
+
+| component             | time   |
+|:----------------------|-------:|
+| ANE chunk 1 (layers 0-17)  | 18.5 ms |
+| MLX → ANE handoff (input)  |  0.4 ms |
+| ANE → ANE handoff (mid)    |  0.4 ms |
+| ANE chunk 2 (layers 18-35) | 18.5 ms |
+| ANE → MLX handoff (output) |  0.4 ms |
+| **total target_verify**    | **~38 ms** |
+
+vs 72 ms GPU bf16 = **47% faster target_verify**.
+
+**Projected full stack** (Swift + LUT6 draft + ANE lm_head + chunked target):
+- Per-cycle: 38 (tv) + 5.7 (dp) + 3.1 (dlh) + 1 (misc) = **47.8 ms**
+- Mean tok/s: 43.26 × (82 / 47.8) = **~74 tok/s at bf16** (1.71× current,
+  2.6× over MLX bf16 baseline, matching 8bit target at bf16 quality)
+
+### Capture-layer handling
+
+DFlash draft needs target hiddens at layers [1, 9, 17, 25, 33]. With
+2 × K=18 chunks:
+
+- Chunk 1 (layers 0-17): captures at 1, 9, 17 → 3 extra outputs from ANE
+- Chunk 2 (layers 18-35): captures at 25, 33 → 2 extra outputs from ANE
+
+Added to `Qwen3MultiLayer` via `capture_indices` tuple (0-based within the
+chunk). Each capture adds one tensor output from the CoreML model —
+negligible overhead.
+
+## Phase 2 remaining work
+
+Swift integration:
+
+1. New `Qwen3ANELayers` class in `DFlashCore` — loads a CoreML chunk,
+   manages K-layer external KV cache (accumulating pattern like DFlash
+   draft).
+2. `Qwen3InspModelInner.forwardFromLayer(startIdx, hidden, cache)` — MLX
+   forward starting from a given layer index (skip first K).
+3. `DFlashSDRunner.hybridTargetVerify()` — orchestrates:
+   `embed_tokens (MLX) → to MLMultiArray → ANE chunk 1 → ANE chunk 2
+    → back to MLX → remaining MLX layers → final norm → logits`
+   plus capture-tensor assembly.
+4. Dual-cache update in `commit` logic (trim on rejections).
+5. RoPE table builder for ANE portion, reused across chunks.
+
+Estimated: **2-3h focused session** for the Swift integration. Phase 1
+is solid; all the inputs/outputs needed are now defined.
+
+## Open variants to explore later
+
+- **Multi-function CoreML bundle** (anemll-qwen35 pattern): single
+  `.mlmodelc` with N functions, one per chunk. Shared weight-state across
+  calls — might reduce per-call overhead vs loading N separate models.
+- **Unified KV cache layout**: one flat tensor for all N chunks' caches
+  instead of per-chunk tensors. Less MLMultiArray overhead.
+- **K=18 one-chunk (half target on ANE)**: intermediate step if chunking
+  is too much engineering. 20% speedup on target_verify alone without
+  dealing with dual ANE chunks.
