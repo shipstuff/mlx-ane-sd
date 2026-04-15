@@ -7,7 +7,7 @@
 import Foundation
 import CoreML
 
-public struct DraftConfig {
+public struct DraftConfig: Sendable {
     public let blockSize: Int = 16
     public let ctxSize: Int = 16
     public let hiddenSize: Int = 2560
@@ -26,7 +26,7 @@ public struct DraftConfig {
     }
 }
 
-public final class DFlashANEDraft {
+public final class DFlashANEDraft: @unchecked Sendable {
     public let config: DraftConfig
     private let model: MLModel
 

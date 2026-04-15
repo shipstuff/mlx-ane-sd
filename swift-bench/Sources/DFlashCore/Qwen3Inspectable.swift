@@ -122,9 +122,10 @@ public class Qwen3InspTransformerBlock: Module {
 }
 
 public class Qwen3InspModelInner: Module {
-    @ModuleInfo(key: "embed_tokens") var embedTokens: Embedding
+    // embedTokens public so SD loop can call it for noise_embedding construction.
+    @ModuleInfo(key: "embed_tokens") public var embedTokens: Embedding
 
-    // Made PUBLIC so we can iterate from outside (key change vs upstream).
+    // layers public so we can iterate from outside (key change vs upstream).
     public let layers: [Qwen3InspTransformerBlock]
     let norm: RMSNorm
 
@@ -180,7 +181,7 @@ public class Qwen3InspModel: Module, LLMModel, KVCacheDimensionProvider {
     public let model: Qwen3InspModelInner
     let configuration: Qwen3InspConfiguration
 
-    @ModuleInfo(key: "lm_head") var lmHead: Linear?
+    @ModuleInfo(key: "lm_head") public var lmHead: Linear?
 
     public init(_ args: Qwen3InspConfiguration) {
         self.configuration = args

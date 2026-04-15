@@ -16,7 +16,7 @@
 
 import Foundation
 
-public final class Profiler {
+public final class Profiler: @unchecked Sendable {
     public struct PhaseStats: Codable {
         public var calls: Int = 0
         public var totalMs: Double = 0

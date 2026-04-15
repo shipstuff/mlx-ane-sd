@@ -54,5 +54,21 @@ let package = Package(
             ],
             path: "Sources/target-load-test"
         ),
+        // Full SD loop: target (MLX) + draft (ANE) with accept/trim logic.
+        .executableTarget(
+            name: "dflash-sd",
+            dependencies: [
+                "DFlashCore",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "MLXLLM", package: "mlx-swift-lm"),
+                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+                .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
+                .product(name: "MLX", package: "mlx-swift"),
+                .product(name: "MLXNN", package: "mlx-swift"),
+                .product(name: "Tokenizers", package: "swift-transformers"),
+                .product(name: "HuggingFace", package: "swift-huggingface"),
+            ],
+            path: "Sources/dflash-sd"
+        ),
     ]
 )
