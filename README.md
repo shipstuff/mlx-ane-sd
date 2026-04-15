@@ -10,22 +10,34 @@ can push past it.
 
 **Tested on:** Mac mini M4 Pro, 64 GB.
 
-## Current best (Qwen3-4B-bf16 target)
+## Current best (Qwen3-4B target)
 
-Native Swift SD runner with ANE-hosted DFlash draft + ANE-hosted LUT6 lm_head
-+ MLX/GPU target verify (`dflash-sd` binary in `swift-bench/`):
+Native Swift SD runner with ANE-hosted DFlash draft (LUT6) + ANE-hosted LUT6
+lm_head + MLX/GPU target verify (`dflash-sd` binary in `swift-bench/`):
 
-| config                                            | mean tok/s | per-cycle |
-|:--------------------------------------------------|-----------:|----------:|
-| MLX-only baseline (no SD)                         |       28.5 |         — |
-| dflash-mlx (custom MLX draft)                     |       43.6 |         — |
-| Python F.1 (ANE draft + MLX target)               |       34.97 |    102 ms |
-| **Swift `dflash-sd` (matches Python F.1)**        |   **34.32** |  **102 ms** |
-| **Swift + ANE LUT6 lm_head**                      |   **41.07** |   **87 ms** |
+| config                                            | mean tok/s | per-cycle | vs MLX-same-precision baseline |
+|:--------------------------------------------------|-----------:|----------:|-------------------------------:|
+| MLX bf16 baseline (no SD)                         |       28.5 |         — |                          1.00× |
+| MLX 8bit baseline (no SD)                         |       53.6 |         — |                          1.00× |
+| dflash-mlx (custom MLX draft, bf16 target)        |       43.6 |         — |                          1.53× |
+| Python F.1 (ANE draft + bf16 target)              |      34.97 |    102 ms |                          1.23× |
+| Swift `dflash-sd` (matches Python F.1)            |      34.32 |    102 ms |                          1.20× |
+| + ANE LUT6 lm_head (bf16 target)                  |      41.07 |     87 ms |                          1.44× |
+| + LUT6 draft (bf16 target)                        |      43.26 |     82 ms |                          1.52× |
+| **+ 8bit target** (current best)                  |  **60.66** |  **62 ms** |                      **1.13×** |
 
-Across 4 standard prompts (capital, fibonacci, math, story), text output is
-byte-identical between Swift baseline and Swift+ANE-lmhead variants. See
-[notes/ane_lmhead_exploration.md](./notes/ane_lmhead_exploration.md).
+**60.66 tok/s mean** = **2.13× over MLX bf16 baseline** or **1.13× over MLX
+8bit baseline**. Prompt-sensitive at 8bit: fibonacci 122 t/s (2.27× over
+8bit baseline), story 33 t/s (0.62× — baseline wins). At bf16 precision
+all prompts benefit from SD; at 8bit, SD gain compresses. Text byte-identical
+to bf16 baseline on math; minor drift on creative prompts (near-tie argmax
+flips from quantization noise).
+
+See notes for the journey:
+- [ane_lmhead_exploration.md](./notes/ane_lmhead_exploration.md) — ANE LUT6 lm_head, +20%
+- [draft_lut6_findings.md](./notes/draft_lut6_findings.md) — DFlash draft LUT6, 1.83× faster predict
+- [8bit_target_findings.md](./notes/8bit_target_findings.md) — 8bit target sweet spot
+- [swift_multistream_ane_lmhead.md](./notes/swift_multistream_ane_lmhead.md) — multi-stream compounding
 
 ## Findings so far
 
