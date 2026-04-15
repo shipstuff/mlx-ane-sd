@@ -172,6 +172,40 @@ public class Qwen3InspModelInner: Module {
         let captures = captureAt.map { capturedByIndex[$0]! }
         return (norm(h), captures)
     }
+
+    /// Forward starting from a given layer index, using a pre-computed hidden
+    /// state as input (as if layers 0..startIdx-1 were computed elsewhere).
+    /// Applies the final norm at the end. Caches for layers [0..startIdx-1]
+    /// are ignored (caller is responsible for maintaining them separately).
+    public func forwardFromLayerCapturing(
+        startIdx: Int,
+        hidden: MLXArray,
+        cache: [KVCache]? = nil,
+        captureAt: [Int]
+    ) -> (finalHidden: MLXArray, captures: [MLXArray]) {
+        var h = hidden
+        // Build attention mask using any layer's cache that exists (they
+        // should all be the same length for layers in [startIdx..])
+        let mask = createAttentionMask(h: h, cache: cache?[startIdx])
+
+        let captureSet = Set(captureAt)
+        var capturedByIndex: [Int: MLXArray] = [:]
+
+        for i in startIdx..<layers.count {
+            h = layers[i](h, mask: mask, cache: cache?[i])
+            if captureSet.contains(i) {
+                capturedByIndex[i] = h
+            }
+        }
+        let captures = captureAt.map { capturedByIndex[$0]! }
+        return (norm(h), captures)
+    }
+
+    /// Embed tokens only (layer-0 input). Public so the runner can run the
+    /// first K layers on ANE using the hidden as input.
+    public func embed(_ inputs: MLXArray) -> MLXArray {
+        return embedTokens(inputs)
+    }
 }
 
 public class Qwen3InspModel: Module, LLMModel, KVCacheDimensionProvider {
@@ -216,6 +250,25 @@ public class Qwen3InspModel: Module, LLMModel, KVCacheDimensionProvider {
             logits = lmHead(hidden)
         } else {
             logits = model.embedTokens.asLinear(hidden)
+        }
+        return (logits, captures)
+    }
+
+    /// Forward starting from a pre-computed hidden state (layers 0..startIdx-1
+    /// computed externally, e.g. on ANE), running remaining MLX layers + lm_head.
+    public func forwardFromLayerCapturing(
+        startIdx: Int,
+        hidden: MLXArray,
+        cache: [KVCache]? = nil,
+        captureAt: [Int]
+    ) -> (logits: MLXArray, captures: [MLXArray]) {
+        let (finalHidden, captures) = model.forwardFromLayerCapturing(
+            startIdx: startIdx, hidden: hidden, cache: cache, captureAt: captureAt)
+        let logits: MLXArray
+        if let lmHead {
+            logits = lmHead(finalHidden)
+        } else {
+            logits = model.embedTokens.asLinear(finalHidden)
         }
         return (logits, captures)
     }

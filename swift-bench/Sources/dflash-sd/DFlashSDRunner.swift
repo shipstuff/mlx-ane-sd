@@ -68,6 +68,15 @@ struct DFlashSDRunner: AsyncParsableCommand {
     @Option(help: "Optional compiled CoreML .mlmodelc for lm_head (fp16 input [1,15,2560] -> fp16 logits [1,15,vocab]). If set, uses ANE lm_head instead of MLX GPU lm_head.")
     var aneLmhead: String = ""
 
+    @Option(help: "Optional compiled CoreML .mlmodelc with K Qwen3 target layers. Use with --ane-target-k to set K. Enables hybrid target_verify (ANE first K layers + MLX remaining).")
+    var aneTargetLayers: String = ""
+
+    @Option(help: "K value for --ane-target-layers: number of target layers on ANE.")
+    var aneTargetK: Int = 0
+
+    @Option(help: "Comma-separated 0-based indices within the ANE K layers to expose as captures (for DFlash draft's target_hidden). Must match conversion.")
+    var aneTargetCaptures: String = ""
+
     func run() async throws {
         let profiler = Profiler()
         profiler.begin("total_wall")
@@ -126,6 +135,30 @@ struct DFlashSDRunner: AsyncParsableCommand {
             aneLmHeadBox = nil
         }
 
+        // Optional: load K-layer ANE target model (hybrid target_verify)
+        let aneLayers: Qwen3ANELayers?
+        let aneCaptureIndices: [Int]
+        if !self.aneTargetLayers.isEmpty {
+            precondition(self.aneTargetK > 0, "--ane-target-k must be > 0 when --ane-target-layers is set")
+            aneCaptureIndices = self.aneTargetCaptures.isEmpty ? []
+                : self.aneTargetCaptures.split(separator: ",").compactMap { Int($0) }
+            if !self.json { print("[sd] loading ANE target layers (K=\(self.aneTargetK)) \(self.aneTargetLayers)...") }
+            let tLoad = CFAbsoluteTimeGetCurrent()
+            let cfg = Qwen3ANEConfig(numLayers: self.aneTargetK,
+                                       stateLength: self.stateLength,
+                                       captureIndices: aneCaptureIndices)
+            aneLayers = try Qwen3ANELayers(mlmodelcPath: self.aneTargetLayers,
+                                             config: cfg, profiler: profiler)
+            if !self.json {
+                print(String(format: "[sd] ANE target layers loaded in %.2fs",
+                             CFAbsoluteTimeGetCurrent() - tLoad))
+            }
+        } else {
+            aneLayers = nil
+            aneCaptureIndices = []
+        }
+        let aneTargetK = self.aneTargetK
+
         // Run inside the container's context
         try await container.perform { context in
             guard let model = context.model as? Qwen3InspModel else {
@@ -150,6 +183,27 @@ struct DFlashSDRunner: AsyncParsableCommand {
             )
             prefillLogits.asArray(Float.self)  // eval
             profiler.end("target_prefill")
+
+            // Sync MLX cache -> ANE cache for layers [0..K-1] after prefill.
+            if let aneL = aneLayers {
+                profiler.begin("ane_cache_sync")
+                var layerKeys = [MLMultiArray]()
+                var layerValues = [MLMultiArray]()
+                for i in 0..<aneTargetK {
+                    let state = targetCache[i].state  // [keys, values], each [1, 8, promptLen, 128]
+                    precondition(state.count == 2, "unexpected KV cache state for layer \(i)")
+                    let k = try self.mlxToMLMultiArray(state[0])
+                    let v = try self.mlxToMLMultiArray(state[1])
+                    layerKeys.append(k)
+                    layerValues.append(v)
+                }
+                try aneL.loadFromPrefill(layerKeys: layerKeys, layerValues: layerValues,
+                                          promptLen: promptTokens.count)
+                profiler.end("ane_cache_sync")
+                if !self.json {
+                    print("[sd] synced \(promptTokens.count) prefill positions to ANE cache")
+                }
+            }
 
             // Sample bonus token from prefill
             let bonus = prefillLogits[0..., -1, 0...].argMax(axis: -1).item(Int32.self)
@@ -236,11 +290,76 @@ struct DFlashSDRunner: AsyncParsableCommand {
                 let verifyIds = [Int32(last)] + draftTokenArray
                 let verifyInput = MLXArray(verifyIds).reshaped([1, verifyIds.count])
 
-                // Capture hidden at specified layers
-                let (verifyLogits, verifyCaptures) = model.forwardCapturing(
-                    verifyInput, cache: targetCache, captureAt: captureIndices
-                )
-                verifyLogits.asArray(Float.self)
+                // Two paths: hybrid (ANE K layers + MLX remaining) vs full MLX.
+                let verifyLogits: MLXArray
+                let verifyCaptures: [MLXArray]
+                var aneNewK: MLMultiArray? = nil
+                var aneNewV: MLMultiArray? = nil
+                if let aneL = aneLayers {
+                    // Hybrid: embed -> ANE K layers -> MLX K..35 -> logits.
+                    profiler.begin("tv_embed")
+                    let embHidden = model.model.embed(verifyInput)
+                    embHidden.asArray(Float.self)
+                    profiler.end("tv_embed")
+
+                    profiler.begin("tv_mlx_to_coreml")
+                    let embMLArr = try self.mlxToMLMultiArray(embHidden)
+                    profiler.end("tv_mlx_to_coreml")
+
+                    let aneOut = try await aneL.forward(hidden: embMLArr)
+                    aneNewK = aneOut.newK
+                    aneNewV = aneOut.newV
+
+                    profiler.begin("tv_coreml_to_mlx")
+                    let hiddenAfterKFp16 = try self.mlMultiArrayToMLX(aneOut.hidden)
+                    // Cast to bf16 so MLX target (Qwen3-4B-bf16) doesn't re-cast per layer.
+                    let hiddenAfterK = hiddenAfterKFp16.asType(.bfloat16)
+                    profiler.end("tv_coreml_to_mlx")
+
+                    // Continue with remaining MLX layers + lm_head
+                    profiler.begin("tv_mlx_layers")
+                    let mlxCaptureAt = captureIndices.filter { $0 >= aneTargetK }
+                    let (logits, mlxCaptures) = model.forwardFromLayerCapturing(
+                        startIdx: aneTargetK, hidden: hiddenAfterK,
+                        cache: targetCache, captureAt: mlxCaptureAt)
+                    logits.asArray(Float.self)
+                    profiler.end("tv_mlx_layers")
+
+                    // Assemble captures in the order of captureIndices: ANE captures first
+                    // (for indices < K), then MLX captures (for indices >= K).
+                    var finalCaptures = [MLXArray]()
+                    let aneCapLayers = captureIndices.filter { $0 < aneTargetK }
+                    if !aneCapLayers.isEmpty {
+                        guard let capArr = aneOut.captures else {
+                            throw NSError(domain: "dflash-sd", code: 3,
+                                           userInfo: [NSLocalizedDescriptionKey: "ANE model did not return captures"])
+                        }
+                        // capArr shape: [n_captures, 1, 16, 2560]; split into individual MLXArrays
+                        let capMLX = try self.mlMultiArrayToMLX(capArr)
+                        for i in 0..<aneCapLayers.count {
+                            finalCaptures.append(capMLX[i, 0..., 0..., 0...])
+                        }
+                    }
+                    for c in mlxCaptures { finalCaptures.append(c) }
+                    // Reorder to match captureIndices
+                    var byIndex = [Int: MLXArray]()
+                    let aneLayerList = aneCapLayers
+                    let mlxLayerList = mlxCaptureAt
+                    for (i, layer) in aneLayerList.enumerated() { byIndex[layer] = finalCaptures[i] }
+                    for (i, layer) in mlxLayerList.enumerated() {
+                        byIndex[layer] = finalCaptures[aneLayerList.count + i]
+                    }
+                    verifyCaptures = captureIndices.map { byIndex[$0]! }
+                    verifyLogits = logits
+                } else {
+                    // Standard full-MLX path
+                    let (logits, caps) = model.forwardCapturing(
+                        verifyInput, cache: targetCache, captureAt: captureIndices
+                    )
+                    logits.asArray(Float.self)
+                    verifyLogits = logits
+                    verifyCaptures = caps
+                }
                 profiler.end("target_verify")
 
                 // Sample target tokens
@@ -284,6 +403,27 @@ struct DFlashSDRunner: AsyncParsableCommand {
                         cache.trim(trim)
                     }
                     profiler.end("target_cache_trim")
+                }
+
+                // If using ANE target layers: commit committed positions to its cache too.
+                // Note: ANE cache was populated with all 16 new K/V during target_verify's
+                // ANE forward. Commit needs to advance writePos by (accepted + 1) only.
+                // ANE cache trim on rejection happens via negative adjustment in next call.
+                // Actually: ANE cache was NOT yet updated this cycle. The forward() returned
+                // newK/newV but didn't write them. We write them now with committed count.
+                // TODO: if ANE was re-run with a re-tried block after rejection, handle that.
+                // For now, assume standard flow: commit (accepted+1) of the 16.
+                // Since ANE's commit does "write all T, advance by committed", it correctly
+                // handles the rejection case (the rejected slots get overwritten next cycle).
+                // However, target_cache_trim on MLX trimmed by `trim`. We already advanced
+                // writePos by committed (no trim needed for ANE). But globalOffset must
+                // stay synchronized with MLX's cache offset.
+                // MLX offset after this cycle = previous_offset + 16 - trim = prev + (accepted+1)
+                // ANE globalOffset after commit = prev + (accepted+1). Matches.
+                if let aneL = aneLayers, let nK = aneNewK, let nV = aneNewV {
+                    profiler.begin("ane_cache_commit")
+                    aneL.commit(newK: nK, newV: nV, committed: accepted + 1)
+                    profiler.end("ane_cache_commit")
                 }
 
                 // Update hiddenConcat for next cycle: take the accepted+1 positions

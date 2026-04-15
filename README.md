@@ -24,19 +24,20 @@ lm_head + MLX/GPU target verify (`dflash-sd` binary in `swift-bench/`):
 | Swift `dflash-sd` (matches Python F.1)            |      34.32 |    102 ms |                          1.20× |
 | + ANE LUT6 lm_head (bf16 target)                  |      41.07 |     87 ms |                          1.44× |
 | + LUT6 draft (bf16 target)                        |      43.26 |     82 ms |                          1.52× |
-| **+ 8bit target** (current best)                  |  **60.66** |  **62 ms** |                      **1.13×** |
+| **+ K=18 partial target on ANE (bf16, current best)** | **51.80** |  **70 ms** |                   **1.82×** |
+| + 8bit target (option, quality trade)             |      60.66 |     62 ms |                          1.13× |
 
-**60.66 tok/s mean** = **2.13× over MLX bf16 baseline** or **1.13× over MLX
-8bit baseline**. Prompt-sensitive at 8bit: fibonacci 122 t/s (2.27× over
-8bit baseline), story 33 t/s (0.62× — baseline wins). At bf16 precision
-all prompts benefit from SD; at 8bit, SD gain compresses. Text byte-identical
-to bf16 baseline on math; minor drift on creative prompts (near-tie argmax
-flips from quantization noise).
+**51.80 tok/s mean at pure bf16 quality** = **1.82× over MLX bf16 baseline**.
+Text byte-identical to baseline across all 4 prompts. If 8bit-target is
+acceptable, 60.66 tok/s (2.13× bf16 baseline) is an option but has minor
+text drift on open-ended prompts.
 
 See notes for the journey:
 - [ane_lmhead_exploration.md](./notes/ane_lmhead_exploration.md) — ANE LUT6 lm_head, +20%
 - [draft_lut6_findings.md](./notes/draft_lut6_findings.md) — DFlash draft LUT6, 1.83× faster predict
-- [8bit_target_findings.md](./notes/8bit_target_findings.md) — 8bit target sweet spot
+- [2c_partial_target_probe.md](./notes/2c_partial_target_probe.md) — single-layer feasibility
+- [2c_phase2_hybrid_target.md](./notes/2c_phase2_hybrid_target.md) — K=18 hybrid impl, +20%
+- [8bit_target_findings.md](./notes/8bit_target_findings.md) — 8bit target (option, not current best)
 - [swift_multistream_ane_lmhead.md](./notes/swift_multistream_ane_lmhead.md) — multi-stream compounding
 
 ## Findings so far
