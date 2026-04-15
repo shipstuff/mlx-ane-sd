@@ -1,0 +1,850 @@
+[
+  {
+    "cycles": 57,
+    "total_wall_ms": 6350.685954093933,
+    "decode_ms": 5596.663951873779,
+    "phases": {
+      "target_prefill": {
+        "minMs": 107.14900493621826,
+        "maxMs": 107.14900493621826,
+        "meanMs": 107.14900493621826,
+        "totalMs": 107.14900493621826,
+        "calls": 1
+      },
+      "draft_lmhead": {
+        "calls": 57,
+        "meanMs": 19.378011686760082,
+        "totalMs": 1104.5466661453247,
+        "minMs": 18.805980682373047,
+        "maxMs": 41.592955589294434
+      },
+      "draft_rope_build": {
+        "meanMs": 0.025945797301175303,
+        "maxMs": 0.03707408905029297,
+        "calls": 57,
+        "totalMs": 1.4789104461669922,
+        "minMs": 0.02193450927734375
+      },
+      "total_wall": {
+        "maxMs": 6350.404977798462,
+        "meanMs": 6350.404977798462,
+        "totalMs": 6350.404977798462,
+        "minMs": 6350.404977798462,
+        "calls": 1
+      },
+      "target_verify": {
+        "meanMs": 72.27353673232228,
+        "minMs": 71.64907455444336,
+        "maxMs": 73.31490516662598,
+        "totalMs": 4119.591593742371,
+        "calls": 57
+      },
+      "draft_predict": {
+        "minMs": 5.453944206237793,
+        "maxMs": 10.811924934387207,
+        "totalMs": 322.6749897003174,
+        "calls": 57,
+        "meanMs": 5.6609647315845155
+      },
+      "mlx_to_coreml": {
+        "meanMs": 0.3846298184311181,
+        "minMs": 0.32198429107666016,
+        "totalMs": 21.92389965057373,
+        "calls": 57,
+        "maxMs": 1.0440349578857422
+      },
+      "noise_embed": {
+        "totalMs": 8.981466293334961,
+        "minMs": 0.13399124145507812,
+        "calls": 57,
+        "meanMs": 0.1575695840935958,
+        "maxMs": 0.20897388458251953
+      },
+      "draft_cache_commit": {
+        "meanMs": 0.04658991830390796,
+        "calls": 57,
+        "minMs": 0.03600120544433594,
+        "maxMs": 0.05900859832763672,
+        "totalMs": 2.655625343322754
+      },
+      "decode_total": {
+        "maxMs": 5596.663951873779,
+        "totalMs": 5596.663951873779,
+        "meanMs": 5596.663951873779,
+        "calls": 1,
+        "minMs": 5596.663951873779
+      },
+      "accept_check": {
+        "minMs": 0,
+        "meanMs": 0.0008700186746162281,
+        "calls": 57,
+        "maxMs": 0.0020265579223632812,
+        "totalMs": 0.049591064453125
+      },
+      "target_cache_trim": {
+        "totalMs": 0.1125335693359375,
+        "maxMs": 0.0059604644775390625,
+        "meanMs": 0.0019742731462445177,
+        "calls": 57,
+        "minMs": 0.00095367431640625
+      },
+      "draft_mask_build": {
+        "calls": 57,
+        "totalMs": 0.14317035675048828,
+        "minMs": 0.00095367431640625,
+        "maxMs": 0.004887580871582031,
+        "meanMs": 0.0025117606447454086
+      }
+    },
+    "tok_per_s_wall": 15.746330510255444,
+    "accepted_total": 99,
+    "tokens": 100,
+    "avg_accepted_per_cycle": 1.736842105263158,
+    "text": " its art museums, historic architecture, and vibrant cultural scene. The city is home to the Eiffel Tower, the Louvre Museum, and the Notre-Dame Cathedral. Paris is also a major center for fashion and design, with many high-end fashion houses based there. The city is known for its cuisine, with famous dishes such as coq au vin and bouillabaisse. Paris is a popular tourist destination and is often considered one of the most beautiful cities in the world. \n\n",
+    "tok_per_s_decode": 17.86778710673163,
+    "impl": "gpu_lmhead",
+    "name": "capital"
+  },
+  {
+    "accepted_total": 99,
+    "avg_accepted_per_cycle": 1.706896551724138,
+    "decode_ms": 4774.973034858704,
+    "cycles": 58,
+    "text": " its art museums, historic architecture, and vibrant cultural scene. The city is home to the Eiffel Tower, the Louvre Museum, and the Notre-Dame Cathedral. Paris is also a major center for fashion and design, with many high-end fashion houses based there. The city is known for its cuisine, with famous dishes such as coq au vin and bouillabaisse. Paris is a popular tourist destination and is often considered one of the most beautiful cities in the world. \n\n",
+    "phases": {
+      "total_wall": {
+        "calls": 1,
+        "maxMs": 5545.570969581604,
+        "meanMs": 5545.570969581604,
+        "totalMs": 5545.570969581604,
+        "minMs": 5545.570969581604
+      },
+      "draft_cache_commit": {
+        "calls": 58,
+        "minMs": 0.03504753112792969,
+        "maxMs": 0.07295608520507812,
+        "totalMs": 2.3643970489501953,
+        "meanMs": 0.04076546636121026
+      },
+      "target_verify": {
+        "meanMs": 72.78345576648054,
+        "totalMs": 4221.440434455872,
+        "minMs": 72.20196723937988,
+        "calls": 58,
+        "maxMs": 74.09608364105225
+      },
+      "draft_lmhead": {
+        "minMs": 3.0030012130737305,
+        "maxMs": 5.188107490539551,
+        "calls": 58,
+        "totalMs": 179.13973331451416,
+        "meanMs": 3.0886160916295546
+      },
+      "accept_check": {
+        "maxMs": 0.0010728836059570312,
+        "minMs": 0,
+        "calls": 58,
+        "totalMs": 0.03516674041748047,
+        "meanMs": 0.0006063231106462149
+      },
+      "draft_predict": {
+        "meanMs": 5.600684675677069,
+        "minMs": 5.425095558166504,
+        "maxMs": 10.719060897827148,
+        "calls": 58,
+        "totalMs": 324.83971118927
+      },
+      "draft_rope_build": {
+        "meanMs": 0.024045335835423964,
+        "minMs": 0.0209808349609375,
+        "calls": 58,
+        "maxMs": 0.032067298889160156,
+        "totalMs": 1.3946294784545898
+      },
+      "mlx_to_coreml": {
+        "totalMs": 21.70705795288086,
+        "minMs": 0.3039836883544922,
+        "calls": 58,
+        "meanMs": 0.3742596198772562,
+        "maxMs": 1.146078109741211
+      },
+      "target_cache_trim": {
+        "totalMs": 0.10991096496582031,
+        "meanMs": 0.0018950166373417295,
+        "calls": 58,
+        "maxMs": 0.007033348083496094,
+        "minMs": 0.00095367431640625
+      },
+      "target_prefill": {
+        "totalMs": 108.27803611755371,
+        "maxMs": 108.27803611755371,
+        "minMs": 108.27803611755371,
+        "meanMs": 108.27803611755371,
+        "calls": 1
+      },
+      "noise_embed": {
+        "calls": 58,
+        "minMs": 0.12493133544921875,
+        "totalMs": 8.843541145324707,
+        "maxMs": 0.18405914306640625,
+        "meanMs": 0.15247484733318462
+      },
+      "decode_total": {
+        "calls": 1,
+        "maxMs": 4774.973034858704,
+        "minMs": 4774.973034858704,
+        "totalMs": 4774.973034858704,
+        "meanMs": 4774.973034858704
+      },
+      "draft_mask_build": {
+        "minMs": 0.00095367431640625,
+        "maxMs": 0.0030994415283203125,
+        "totalMs": 0.1360177993774414,
+        "meanMs": 0.002345134472024852,
+        "calls": 58
+      }
+    },
+    "total_wall_ms": 5545.814990997314,
+    "tok_per_s_decode": 20.942526642552885,
+    "tok_per_s_wall": 18.031614859553187,
+    "tokens": 100,
+    "impl": "ane_lmhead",
+    "name": "capital"
+  },
+  {
+    "decode_ms": 1401.75199508667,
+    "phases": {
+      "target_cache_trim": {
+        "maxMs": 0.0050067901611328125,
+        "meanMs": 0.0018974145253499348,
+        "minMs": 0.00095367431640625,
+        "calls": 12,
+        "totalMs": 0.02276897430419922
+      },
+      "noise_embed": {
+        "maxMs": 0.21505355834960938,
+        "totalMs": 2.2503137588500977,
+        "meanMs": 0.16073669706072127,
+        "calls": 14,
+        "minMs": 0.13697147369384766
+      },
+      "decode_total": {
+        "minMs": 1401.75199508667,
+        "totalMs": 1401.75199508667,
+        "maxMs": 1401.75199508667,
+        "meanMs": 1401.75199508667,
+        "calls": 1
+      },
+      "target_prefill": {
+        "minMs": 125.2070665359497,
+        "totalMs": 125.2070665359497,
+        "meanMs": 125.2070665359497,
+        "maxMs": 125.2070665359497,
+        "calls": 1
+      },
+      "draft_cache_commit": {
+        "totalMs": 0.6700754165649414,
+        "meanMs": 0.04786252975463867,
+        "calls": 14,
+        "minMs": 0.04208087921142578,
+        "maxMs": 0.06496906280517578
+      },
+      "draft_rope_build": {
+        "totalMs": 0.36978721618652344,
+        "minMs": 0.02193450927734375,
+        "meanMs": 0.026413372584751675,
+        "maxMs": 0.033974647521972656,
+        "calls": 14
+      },
+      "draft_mask_build": {
+        "maxMs": 0.0040531158447265625,
+        "totalMs": 0.03898143768310547,
+        "meanMs": 0.002784388405936105,
+        "minMs": 0.0019073486328125,
+        "calls": 14
+      },
+      "accept_check": {
+        "meanMs": 0.0006301062447684151,
+        "minMs": 0,
+        "maxMs": 0.0010728836059570312,
+        "calls": 14,
+        "totalMs": 0.008821487426757812
+      },
+      "draft_lmhead": {
+        "calls": 14,
+        "meanMs": 20.814648696354457,
+        "maxMs": 44.50392723083496,
+        "totalMs": 291.4050817489624,
+        "minMs": 18.764972686767578
+      },
+      "draft_predict": {
+        "totalMs": 83.08267593383789,
+        "maxMs": 10.663986206054688,
+        "meanMs": 5.934476852416992,
+        "minMs": 5.507946014404297,
+        "calls": 14
+      },
+      "target_verify": {
+        "calls": 14,
+        "totalMs": 1013.9468908309937,
+        "meanMs": 72.42477791649955,
+        "minMs": 71.91801071166992,
+        "maxMs": 73.66907596588135
+      },
+      "total_wall": {
+        "calls": 1,
+        "maxMs": 2162.8739833831787,
+        "meanMs": 2162.8739833831787,
+        "minMs": 2162.8739833831787,
+        "totalMs": 2162.8739833831787
+      },
+      "mlx_to_coreml": {
+        "totalMs": 6.235957145690918,
+        "meanMs": 0.44542551040649414,
+        "maxMs": 1.0629892349243164,
+        "calls": 14,
+        "minMs": 0.32401084899902344
+      }
+    },
+    "tok_per_s_decode": 71.33929564610109,
+    "avg_accepted_per_cycle": 7.071428571428571,
+    "total_wall_ms": 2163.0409955978394,
+    "tok_per_s_wall": 46.23120884140301,
+    "cycles": 14,
+    "text": "\n\n# Output:\n# fib(0) = 0\n# fib(1) = 1\n# fib(2) = 1\n# fib(3) = 2\n# fib(4) = 3\n# fib(5) = 5\n# fib(6) = 8\n# fib(7) = 13\n# fib(8) = 21\n# fib(9) = 34\n\n# This",
+    "tokens": 100,
+    "accepted_total": 99,
+    "impl": "gpu_lmhead",
+    "name": "fibonacci"
+  },
+  {
+    "accepted_total": 99,
+    "decode_ms": 1161.1799001693726,
+    "cycles": 14,
+    "avg_accepted_per_cycle": 7.071428571428571,
+    "text": "\n\n# Output:\n# fib(0) = 0\n# fib(1) = 1\n# fib(2) = 1\n# fib(3) = 2\n# fib(4) = 3\n# fib(5) = 5\n# fib(6) = 8\n# fib(7) = 13\n# fib(8) = 21\n# fib(9) = 34\n\n# This",
+    "tokens": 100,
+    "tok_per_s_wall": 51.4122985264163,
+    "tok_per_s_decode": 86.11929984786488,
+    "phases": {
+      "target_prefill": {
+        "meanMs": 123.87490272521973,
+        "minMs": 123.87490272521973,
+        "maxMs": 123.87490272521973,
+        "calls": 1,
+        "totalMs": 123.87490272521973
+      },
+      "noise_embed": {
+        "totalMs": 2.2197961807250977,
+        "meanMs": 0.1585568700517927,
+        "calls": 14,
+        "minMs": 0.1310110092163086,
+        "maxMs": 0.20492076873779297
+      },
+      "draft_rope_build": {
+        "maxMs": 0.033974647521972656,
+        "totalMs": 0.36704540252685547,
+        "calls": 14,
+        "meanMs": 0.026217528751918247,
+        "minMs": 0.02193450927734375
+      },
+      "total_wall": {
+        "meanMs": 1944.9388980865479,
+        "minMs": 1944.9388980865479,
+        "totalMs": 1944.9388980865479,
+        "maxMs": 1944.9388980865479,
+        "calls": 1
+      },
+      "decode_total": {
+        "maxMs": 1161.1799001693726,
+        "minMs": 1161.1799001693726,
+        "meanMs": 1161.1799001693726,
+        "calls": 1,
+        "totalMs": 1161.1799001693726
+      },
+      "draft_cache_commit": {
+        "minMs": 0.03993511199951172,
+        "calls": 14,
+        "totalMs": 0.6628036499023438,
+        "meanMs": 0.04734311785016741,
+        "maxMs": 0.07092952728271484
+      },
+      "draft_predict": {
+        "calls": 14,
+        "totalMs": 82.65519142150879,
+        "minMs": 5.449056625366211,
+        "meanMs": 5.903942244393485,
+        "maxMs": 10.58197021484375
+      },
+      "accept_check": {
+        "meanMs": 0.000698225838797433,
+        "calls": 14,
+        "maxMs": 0.0010728836059570312,
+        "totalMs": 0.009775161743164062,
+        "minMs": 0
+      },
+      "target_cache_trim": {
+        "calls": 12,
+        "totalMs": 0.027298927307128906,
+        "maxMs": 0.007033348083496094,
+        "meanMs": 0.0022749106089274087,
+        "minMs": 0.00095367431640625
+      },
+      "mlx_to_coreml": {
+        "calls": 14,
+        "minMs": 0.3159046173095703,
+        "meanMs": 0.43736185346330914,
+        "maxMs": 1.0609626770019531,
+        "totalMs": 6.123065948486328
+      },
+      "draft_lmhead": {
+        "meanMs": 3.236004284449986,
+        "maxMs": 5.529999732971191,
+        "totalMs": 45.304059982299805,
+        "minMs": 3.013014793395996,
+        "calls": 14
+      },
+      "target_verify": {
+        "totalMs": 1019.609808921814,
+        "meanMs": 72.82927206584385,
+        "calls": 14,
+        "maxMs": 73.65906238555908,
+        "minMs": 72.26300239562988
+      },
+      "draft_mask_build": {
+        "totalMs": 0.03600120544433594,
+        "calls": 14,
+        "meanMs": 0.0025715146745954242,
+        "maxMs": 0.0040531158447265625,
+        "minMs": 0.0019073486328125
+      }
+    },
+    "total_wall_ms": 1945.059895515442,
+    "impl": "ane_lmhead",
+    "name": "fibonacci"
+  },
+  {
+    "tok_per_s_decode": 32.60418435125019,
+    "tokens": 100,
+    "total_wall_ms": 3852.151036262512,
+    "phases": {
+      "draft_lmhead": {
+        "maxMs": 44.15297508239746,
+        "totalMs": 614.8821115493774,
+        "calls": 31,
+        "meanMs": 19.834906824173466,
+        "minMs": 18.873095512390137
+      },
+      "decode_total": {
+        "meanMs": 3067.0909881591797,
+        "minMs": 3067.0909881591797,
+        "calls": 1,
+        "totalMs": 3067.0909881591797,
+        "maxMs": 3067.0909881591797
+      },
+      "noise_embed": {
+        "minMs": 0.13005733489990234,
+        "maxMs": 0.2689361572265625,
+        "calls": 31,
+        "meanMs": 0.1627668257682554,
+        "totalMs": 5.045771598815918
+      },
+      "target_verify": {
+        "minMs": 72.08991050720215,
+        "calls": 31,
+        "maxMs": 73.40490818023682,
+        "meanMs": 72.5094118425923,
+        "totalMs": 2247.7917671203613
+      },
+      "draft_rope_build": {
+        "totalMs": 0.7958412170410156,
+        "meanMs": 0.02567229732390373,
+        "maxMs": 0.03695487976074219,
+        "calls": 31,
+        "minMs": 0.02193450927734375
+      },
+      "draft_mask_build": {
+        "maxMs": 0.008106231689453125,
+        "calls": 31,
+        "minMs": 0.00095367431640625,
+        "totalMs": 0.07581710815429688,
+        "meanMs": 0.002445713166267641
+      },
+      "accept_check": {
+        "totalMs": 0.02682209014892578,
+        "calls": 31,
+        "meanMs": 0.0008652287144814768,
+        "minMs": 0,
+        "maxMs": 0.0010728836059570312
+      },
+      "draft_cache_commit": {
+        "totalMs": 1.461029052734375,
+        "meanMs": 0.04712996944304435,
+        "minMs": 0.03600120544433594,
+        "maxMs": 0.0749826431274414,
+        "calls": 31
+      },
+      "mlx_to_coreml": {
+        "meanMs": 0.4067690141739384,
+        "totalMs": 12.60983943939209,
+        "maxMs": 1.0690689086914062,
+        "calls": 31,
+        "minMs": 0.308990478515625
+      },
+      "target_cache_trim": {
+        "minMs": 0,
+        "meanMs": 0.0013766750212638608,
+        "maxMs": 0.0059604644775390625,
+        "calls": 31,
+        "totalMs": 0.04267692565917969
+      },
+      "draft_predict": {
+        "calls": 31,
+        "meanMs": 5.69200131200975,
+        "totalMs": 176.45204067230225,
+        "maxMs": 10.834097862243652,
+        "minMs": 5.443930625915527
+      },
+      "total_wall": {
+        "meanMs": 3851.9740104675293,
+        "totalMs": 3851.9740104675293,
+        "minMs": 3851.9740104675293,
+        "maxMs": 3851.9740104675293,
+        "calls": 1
+      },
+      "target_prefill": {
+        "calls": 1,
+        "minMs": 128.33106517791748,
+        "maxMs": 128.33106517791748,
+        "totalMs": 128.33106517791748,
+        "meanMs": 128.33106517791748
+      }
+    },
+    "cycles": 31,
+    "text": " 3y = 20 + 7 = 27; y = 27/3 = 9. So, x = 6 and y = 9. Is this correct? Let me check. For x: 2(6) + 5 = 12 + 5 = 17. Correct. For y: 3(9) - 7 = 27 - 7 = 20. Correct. So, the answer",
+    "avg_accepted_per_cycle": 3.193548387096774,
+    "accepted_total": 99,
+    "tok_per_s_wall": 25.959522110800567,
+    "decode_ms": 3067.0909881591797,
+    "impl": "gpu_lmhead",
+    "name": "math"
+  },
+  {
+    "tok_per_s_wall": 32.095330762449514,
+    "phases": {
+      "target_verify": {
+        "totalMs": 2046.3649034500122,
+        "meanMs": 73.08446083750043,
+        "minMs": 72.40700721740723,
+        "calls": 28,
+        "maxMs": 74.29397106170654
+      },
+      "accept_check": {
+        "meanMs": 0.0007067407880510603,
+        "calls": 28,
+        "maxMs": 0.0010728836059570312,
+        "minMs": 0,
+        "totalMs": 0.019788742065429688
+      },
+      "draft_lmhead": {
+        "calls": 28,
+        "meanMs": 3.144319568361555,
+        "minMs": 2.9990673065185547,
+        "maxMs": 5.403995513916016,
+        "totalMs": 88.04094791412354
+      },
+      "noise_embed": {
+        "maxMs": 0.1989603042602539,
+        "calls": 28,
+        "totalMs": 4.3212175369262695,
+        "meanMs": 0.15432919774736678,
+        "minMs": 0.12695789337158203
+      },
+      "draft_mask_build": {
+        "minMs": 0.00095367431640625,
+        "totalMs": 0.06818771362304688,
+        "maxMs": 0.0040531158447265625,
+        "meanMs": 0.0024352754865373883,
+        "calls": 28
+      },
+      "draft_predict": {
+        "calls": 28,
+        "maxMs": 10.856986045837402,
+        "totalMs": 159.95419025421143,
+        "meanMs": 5.712649651936123,
+        "minMs": 5.421042442321777
+      },
+      "decode_total": {
+        "calls": 1,
+        "meanMs": 2319.3719387054443,
+        "maxMs": 2319.3719387054443,
+        "minMs": 2319.3719387054443,
+        "totalMs": 2319.3719387054443
+      },
+      "draft_rope_build": {
+        "totalMs": 0.7009506225585938,
+        "meanMs": 0.025033950805664062,
+        "minMs": 0.02205371856689453,
+        "calls": 28,
+        "maxMs": 0.031948089599609375
+      },
+      "target_cache_trim": {
+        "meanMs": 0.0018136841910226004,
+        "minMs": 0.00095367431640625,
+        "calls": 28,
+        "maxMs": 0.006079673767089844,
+        "totalMs": 0.05078315734863281
+      },
+      "target_prefill": {
+        "totalMs": 123.73006343841553,
+        "minMs": 123.73006343841553,
+        "calls": 1,
+        "meanMs": 123.73006343841553,
+        "maxMs": 123.73006343841553
+      },
+      "total_wall": {
+        "meanMs": 3115.543007850647,
+        "totalMs": 3115.543007850647,
+        "minMs": 3115.543007850647,
+        "maxMs": 3115.543007850647,
+        "calls": 1
+      },
+      "mlx_to_coreml": {
+        "calls": 28,
+        "totalMs": 11.287212371826172,
+        "minMs": 0.30994415283203125,
+        "meanMs": 0.40311472756522043,
+        "maxMs": 1.0280609130859375
+      },
+      "draft_cache_commit": {
+        "calls": 28,
+        "totalMs": 1.2809038162231445,
+        "meanMs": 0.045746564865112305,
+        "minMs": 0.03802776336669922,
+        "maxMs": 0.07200241088867188
+      }
+    },
+    "tokens": 100,
+    "cycles": 28,
+    "total_wall_ms": 3115.7180070877075,
+    "accepted_total": 99,
+    "decode_ms": 2319.3719387054443,
+    "tok_per_s_decode": 43.11512023199475,
+    "text": " 3y = 20 + 7 = 27; y = 27/3 = 9. So, x = 6 and y = 9. Is this correct? Let me check. For x: 2(6) + 5 = 12 + 5 = 17. Correct. For y: 3(9) - 7 = 27 - 7 = 20. Correct. So, the answer",
+    "avg_accepted_per_cycle": 3.5357142857142856,
+    "impl": "ane_lmhead",
+    "name": "math"
+  },
+  {
+    "tokens": 100,
+    "phases": {
+      "draft_lmhead": {
+        "meanMs": 19.56988730520572,
+        "calls": 53,
+        "totalMs": 1037.2040271759033,
+        "minMs": 18.889904022216797,
+        "maxMs": 43.01893711090088
+      },
+      "decode_total": {
+        "totalMs": 5219.793081283569,
+        "calls": 1,
+        "maxMs": 5219.793081283569,
+        "meanMs": 5219.793081283569,
+        "minMs": 5219.793081283569
+      },
+      "target_prefill": {
+        "maxMs": 111.02497577667236,
+        "meanMs": 111.02497577667236,
+        "calls": 1,
+        "minMs": 111.02497577667236,
+        "totalMs": 111.02497577667236
+      },
+      "draft_mask_build": {
+        "meanMs": 0.002305462675274543,
+        "calls": 53,
+        "totalMs": 0.12218952178955078,
+        "maxMs": 0.0030994415283203125,
+        "minMs": 0.0010728836059570312
+      },
+      "noise_embed": {
+        "meanMs": 0.15607195080451244,
+        "minMs": 0.12803077697753906,
+        "maxMs": 0.1989603042602539,
+        "calls": 53,
+        "totalMs": 8.27181339263916
+      },
+      "draft_predict": {
+        "minMs": 5.515933036804199,
+        "totalMs": 303.9853572845459,
+        "maxMs": 11.522889137268066,
+        "meanMs": 5.7355727789536965,
+        "calls": 53
+      },
+      "total_wall": {
+        "maxMs": 5981.9101095199585,
+        "minMs": 5981.9101095199585,
+        "calls": 1,
+        "totalMs": 5981.9101095199585,
+        "meanMs": 5981.9101095199585
+      },
+      "draft_rope_build": {
+        "calls": 53,
+        "totalMs": 1.3515949249267578,
+        "meanMs": 0.025501791036353923,
+        "maxMs": 0.03600120544433594,
+        "minMs": 0.0209808349609375
+      },
+      "accept_check": {
+        "calls": 53,
+        "totalMs": 0.04744529724121094,
+        "meanMs": 0.0008951942875700177,
+        "minMs": 0,
+        "maxMs": 0.011086463928222656
+      },
+      "mlx_to_coreml": {
+        "meanMs": 0.38163616972149544,
+        "minMs": 0.31197071075439453,
+        "maxMs": 1.1210441589355469,
+        "calls": 53,
+        "totalMs": 20.226716995239258
+      },
+      "draft_cache_commit": {
+        "calls": 53,
+        "totalMs": 2.448439598083496,
+        "minMs": 0.03695487976074219,
+        "maxMs": 0.07402896881103516,
+        "meanMs": 0.04619697354874521
+      },
+      "target_cache_trim": {
+        "maxMs": 0.007033348083496094,
+        "meanMs": 0.0016037023292397553,
+        "minMs": 0.00095367431640625,
+        "totalMs": 0.08499622344970703,
+        "calls": 53
+      },
+      "target_verify": {
+        "minMs": 71.92003726959229,
+        "totalMs": 3832.392692565918,
+        "meanMs": 72.3092960861494,
+        "maxMs": 73.21298122406006,
+        "calls": 53
+      }
+    },
+    "decode_ms": 5219.793081283569,
+    "tok_per_s_wall": 16.7162971326853,
+    "accepted_total": 99,
+    "cycles": 53,
+    "tok_per_s_decode": 19.157847532034655,
+    "total_wall_ms": 5982.186079025269,
+    "avg_accepted_per_cycle": 1.8679245283018868,
+    "text": " was known for her extraordinary ability to see the future. The villagers often sought her out for guidance, and she would always provide them with clear and insightful answers. However, one day, a strange phenomenon began to occur. The visions that Elara received were becoming more and more distorted, and she could no longer see the future with the same clarity. The villagers were worried and began to question her abilities. Elara, too, was confused and frustrated, as she could not understand why her visions were",
+    "impl": "gpu_lmhead",
+    "name": "story"
+  },
+  {
+    "total_wall_ms": 5157.53698348999,
+    "tok_per_s_wall": 19.389099936677958,
+    "decode_ms": 4371.273994445801,
+    "cycles": 53,
+    "phases": {
+      "draft_rope_build": {
+        "maxMs": 0.04303455352783203,
+        "calls": 53,
+        "minMs": 0.02193450927734375,
+        "totalMs": 1.4673471450805664,
+        "meanMs": 0.027685795190199366
+      },
+      "draft_predict": {
+        "meanMs": 5.619501167873167,
+        "maxMs": 10.702013969421387,
+        "totalMs": 297.83356189727783,
+        "calls": 53,
+        "minMs": 5.437970161437988
+      },
+      "target_prefill": {
+        "calls": 1,
+        "maxMs": 113.15000057220459,
+        "totalMs": 113.15000057220459,
+        "meanMs": 113.15000057220459,
+        "minMs": 113.15000057220459
+      },
+      "mlx_to_coreml": {
+        "minMs": 0.31197071075439453,
+        "maxMs": 1.0919570922851562,
+        "calls": 53,
+        "meanMs": 0.38918909036888266,
+        "totalMs": 20.62702178955078
+      },
+      "target_cache_trim": {
+        "totalMs": 0.08654594421386719,
+        "calls": 53,
+        "meanMs": 0.0016329423436578715,
+        "maxMs": 0.007033348083496094,
+        "minMs": 0.00095367431640625
+      },
+      "decode_total": {
+        "minMs": 4371.273994445801,
+        "maxMs": 4371.273994445801,
+        "meanMs": 4371.273994445801,
+        "totalMs": 4371.273994445801,
+        "calls": 1
+      },
+      "accept_check": {
+        "meanMs": 0.0008209696355855689,
+        "minMs": 0,
+        "maxMs": 0.0020265579223632812,
+        "totalMs": 0.043511390686035156,
+        "calls": 53
+      },
+      "draft_cache_commit": {
+        "totalMs": 2.4993419647216797,
+        "minMs": 0.03802776336669922,
+        "calls": 53,
+        "maxMs": 0.07092952728271484,
+        "meanMs": 0.04715739556078641
+      },
+      "noise_embed": {
+        "maxMs": 0.1939535140991211,
+        "totalMs": 8.359551429748535,
+        "calls": 53,
+        "minMs": 0.1291036605834961,
+        "meanMs": 0.1577273854669535
+      },
+      "total_wall": {
+        "minMs": 5157.2829484939575,
+        "totalMs": 5157.2829484939575,
+        "calls": 1,
+        "maxMs": 5157.2829484939575,
+        "meanMs": 5157.2829484939575
+      },
+      "draft_lmhead": {
+        "totalMs": 163.77079486846924,
+        "calls": 53,
+        "maxMs": 4.971027374267578,
+        "meanMs": 3.0900149975182876,
+        "minMs": 3.004908561706543
+      },
+      "draft_mask_build": {
+        "meanMs": 0.0023999304141638414,
+        "minMs": 0.0010728836059570312,
+        "calls": 53,
+        "maxMs": 0.0030994415283203125,
+        "totalMs": 0.1271963119506836
+      },
+      "target_verify": {
+        "minMs": 72.36802577972412,
+        "calls": 53,
+        "maxMs": 73.87292385101318,
+        "meanMs": 72.87474398343068,
+        "totalMs": 3862.361431121826
+      }
+    },
+    "avg_accepted_per_cycle": 1.8679245283018868,
+    "tok_per_s_decode": 22.876625928061554,
+    "text": " was known for her extraordinary ability to see the future. The villagers often sought her out for guidance, and she would always provide them with clear and insightful answers. However, one day, a strange phenomenon began to occur. The visions that Elara received were becoming more and more distorted, and she could no longer see the future with the same clarity. The villagers were worried and began to question her abilities. Elara, too, was confused and frustrated, as she could not understand why her visions were",
+    "tokens": 100,
+    "accepted_total": 99,
+    "impl": "ane_lmhead",
+    "name": "story"
+  }
+]
