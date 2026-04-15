@@ -25,6 +25,7 @@ import MLXHuggingFace
 import MLXNN
 import CoreML
 import ArgumentParser
+import Accelerate
 import DFlashCore
 
 @main
@@ -64,6 +65,9 @@ struct DFlashSDRunner: AsyncParsableCommand {
     @Flag(help: "Emit a single-line JSON summary on stdout (for benchmark harnesses)")
     var json: Bool = false
 
+    @Option(help: "Optional compiled CoreML .mlmodelc for lm_head (fp16 input [1,15,2560] -> fp16 logits [1,15,vocab]). If set, uses ANE lm_head instead of MLX GPU lm_head.")
+    var aneLmhead: String = ""
+
     func run() async throws {
         let profiler = Profiler()
         profiler.begin("total_wall")
@@ -102,6 +106,24 @@ struct DFlashSDRunner: AsyncParsableCommand {
         if !self.json {
             print(String(format: "[sd] draft loaded in %.2fs",
                          CFAbsoluteTimeGetCurrent() - tDraftLoad))
+        }
+
+        // Optional: load ANE lm_head model (wrap for Sendable capture in perform closure)
+        let aneLmHeadBox: MLModelBox?
+        if !self.aneLmhead.isEmpty {
+            if !self.json { print("[sd] loading ANE lm_head \(self.aneLmhead)...") }
+            let mlconfig = MLModelConfiguration()
+            mlconfig.computeUnits = .cpuAndNeuralEngine
+            let tLmHead = CFAbsoluteTimeGetCurrent()
+            let m = try MLModel(contentsOf: URL(fileURLWithPath: self.aneLmhead),
+                                 configuration: mlconfig)
+            aneLmHeadBox = MLModelBox(model: m)
+            if !self.json {
+                print(String(format: "[sd] ANE lm_head loaded in %.2fs",
+                             CFAbsoluteTimeGetCurrent() - tLmHead))
+            }
+        } else {
+            aneLmHeadBox = nil
         }
 
         // Run inside the container's context
@@ -178,25 +200,39 @@ struct DFlashSDRunner: AsyncParsableCommand {
                     sReal: sReal
                 )
 
-                // Apply target.lmHead to draft hidden for draft_logits.
-                // Only positions [1-bs:] are the draft's predictions, so slice first
-                // to avoid wasting 1 position of lm_head compute (~6% of the matmul).
+                // Apply lm_head to draft hidden -> logits -> argmax.
+                // Two paths: ANE (if aneLmHeadModel loaded) vs MLX GPU.
                 profiler.begin("draft_lmhead")
-                let draftHiddenMLX = try mlMultiArrayToMLX(draftOut.hidden)
-                let hiddenSlice = draftHiddenMLX[0..., (1 - bs)..., 0...]
-                let draftLogits: MLXArray
-                if let lmHead = model.lmHead {
-                    draftLogits = lmHead(hiddenSlice)
+                let draftTokenArray: [Int32]
+                if let aneLmHead = aneLmHeadBox?.model {
+                    // ANE path: slice draft hidden [1,16,2560] -> [1,15,2560], predict, host argmax.
+                    let slicedHidden = try sliceHiddenLastN(draftOut.hidden, n: bs - 1)
+                    let features = try MLDictionaryFeatureProvider(
+                        dictionary: ["hidden": MLFeatureValue(multiArray: slicedHidden)])
+                    let result = try await aneLmHead.prediction(from: features)
+                    guard let logitsArr = result.featureValue(for: "logits")?.multiArrayValue else {
+                        throw NSError(domain: "dflash-sd", code: 2,
+                                       userInfo: [NSLocalizedDescriptionKey: "missing logits"])
+                    }
+                    draftTokenArray = hostArgmaxFp16(logitsArr, L: bs - 1,
+                                                      V: logitsArr.shape[2].intValue)
                 } else {
-                    draftLogits = model.model.embedTokens.asLinear(hiddenSlice)
+                    // MLX GPU path (default)
+                    let draftHiddenMLX = try mlMultiArrayToMLX(draftOut.hidden)
+                    let hiddenSlice = draftHiddenMLX[0..., (1 - bs)..., 0...]
+                    let draftLogits: MLXArray
+                    if let lmHead = model.lmHead {
+                        draftLogits = lmHead(hiddenSlice)
+                    } else {
+                        draftLogits = model.model.embedTokens.asLinear(hiddenSlice)
+                    }
+                    let t = draftLogits.argMax(axis: -1)
+                    draftTokenArray = t.asArray(Int32.self)
                 }
-                let draftTokens = draftLogits.argMax(axis: -1)
-                draftTokens.asArray(Int32.self)
                 profiler.end("draft_lmhead")
 
                 // Build verify input: [last, draft_tokens...]
                 profiler.begin("target_verify")
-                let draftTokenArray = draftTokens.asArray(Int32.self)
                 let verifyIds = [Int32(last)] + draftTokenArray
                 let verifyInput = MLXArray(verifyIds).reshaped([1, verifyIds.count])
 
@@ -348,5 +384,54 @@ struct DFlashSDRunner: AsyncParsableCommand {
         let bytes = totalElements * 2  // fp16
         let data = Data(bytes: arr.dataPointer, count: bytes)
         return MLXArray(data, shape, type: Float16.self)
+    }
+
+    /// Take last n positions of [1, L, H] fp16 MLMultiArray -> new [1, n, H].
+    private func sliceHiddenLastN(_ arr: MLMultiArray, n: Int) throws -> MLMultiArray {
+        let L = arr.shape[1].intValue
+        let H = arr.shape[2].intValue
+        precondition(n <= L)
+        let out = try MLMultiArray(shape: [1, NSNumber(value: n), NSNumber(value: H)],
+                                    dataType: .float16)
+        let srcOffsetBytes = (L - n) * H * 2
+        let copyBytes = n * H * 2
+        memcpy(out.dataPointer,
+               arr.dataPointer.advanced(by: srcOffsetBytes),
+               copyBytes)
+        return out
+    }
+
+    /// Sendable wrapper for MLModel so it can be captured in @Sendable closures.
+    private final class MLModelBox: @unchecked Sendable {
+        let model: MLModel
+        init(model: MLModel) { self.model = model }
+    }
+
+    /// Host argmax over last dim of fp16 [1, L, V] -> [Int32] of length L.
+    /// Uses vImage to convert each row to fp32, then vDSP_maxvi for max+index.
+    private func hostArgmaxFp16(_ arr: MLMultiArray, L: Int, V: Int) -> [Int32] {
+        let ptr16 = arr.dataPointer.assumingMemoryBound(to: UInt16.self)
+        var out = [Int32](repeating: 0, count: L)
+        var fp32Row = [Float](repeating: 0, count: V)
+        let vCount = vImagePixelCount(V)
+
+        for l in 0..<L {
+            // fp16 -> fp32 row conversion via Accelerate
+            var src = vImage_Buffer(
+                data: UnsafeMutableRawPointer(mutating: ptr16.advanced(by: l * V)),
+                height: 1, width: vCount, rowBytes: V * 2)
+            fp32Row.withUnsafeMutableBufferPointer { dstPtr in
+                var dst = vImage_Buffer(
+                    data: UnsafeMutableRawPointer(dstPtr.baseAddress!),
+                    height: 1, width: vCount, rowBytes: V * 4)
+                vImageConvert_Planar16FtoPlanarF(&src, &dst, vImage_Flags(kvImageNoFlags))
+            }
+            // Find max value + its index in one Accelerate call
+            var maxVal: Float = 0
+            var maxIdx: vDSP_Length = 0
+            vDSP_maxvi(fp32Row, 1, &maxVal, &maxIdx, vDSP_Length(V))
+            out[l] = Int32(maxIdx)
+        }
+        return out
     }
 }
