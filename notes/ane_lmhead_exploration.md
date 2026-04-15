@@ -18,6 +18,14 @@ the tensor to ~280 MB. That compression is what makes it fit ANE
 compilation constraints — the fp16 742 MB version was too large and the
 CoreML compiler fell back to CPU.
 
+> **What this lm_head is used for:** ONLY for the draft path
+> (`draft_body_hidden → tokens`). The target model has its own lm_head
+> baked into the MLX target model that runs on GPU as part of target_verify.
+> Qwen3-4B has `tie_word_embeddings=True` so both "lm_heads" are
+> mathematically the same matrix (= `embed_tokens.T`). We extracted it
+> once, compiled a standalone CoreML model for it, and use that ANE copy
+> for the draft. The target's GPU copy is untouched.
+
 **Why offloading it to ANE helps:**
 
 1. **Direct latency win.** The matmul went from 19.5 ms on MLX/GPU to

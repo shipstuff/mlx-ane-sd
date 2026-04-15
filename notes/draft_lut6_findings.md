@@ -1,4 +1,4 @@
-# DFlash draft LUT6: 1.83× faster predict, stacks to 43.26 tok/s mean
+# DFlash draft body LUT6: 1.83× faster predict, stacks to 43.26 tok/s mean
 
 **Date:** 2026-04-15
 **Hardware:** Mac mini M4 Pro, 64 GB (mini-02)
@@ -7,6 +7,15 @@ fp16 package), despite me previously assuming it was. anemll-profile's
 "22.5 MB weights streamed/iter" was ANE's working-set per iteration, not
 total model size. Applying LUT6 quantization (per_tensor for macOS15
 compatibility) shrinks the draft 2.6× and makes it substantially faster.
+
+> **Terminology clarification:** throughout this doc, "draft" means the
+> **DFlash draft body only** — the 5 Qwen3-style transformer layers that
+> output a `[1, 16, 2560]` hidden state. It does NOT include lm_head.
+> The lm_head is a separate CoreML model (extracted from Qwen3-4B's tied
+> embed_tokens matrix) applied AFTER the draft body, also on ANE.
+> "LUT6 draft + ANE lm_head" = two independent quantization steps on two
+> separate CoreML models. They stack because they're different stages
+> of the pipeline.
 
 ## Result: 9.82 → 5.36 ms per predict (1.83× faster)
 
