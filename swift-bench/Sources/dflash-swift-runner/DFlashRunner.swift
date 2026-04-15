@@ -15,6 +15,7 @@
 import Foundation
 import CoreML
 import ArgumentParser
+import DFlashCore
 
 @main
 struct DFlashRunner: AsyncParsableCommand {
