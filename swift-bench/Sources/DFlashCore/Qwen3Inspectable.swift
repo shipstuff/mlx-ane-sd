@@ -177,6 +177,8 @@ public class Qwen3InspModelInner: Module {
     /// state as input (as if layers 0..startIdx-1 were computed elsewhere).
     /// Applies the final norm at the end. Caches for layers [0..startIdx-1]
     /// are ignored (caller is responsible for maintaining them separately).
+    /// When startIdx == layers.count, this just applies final norm (+ no layers,
+    /// no captures).
     public func forwardFromLayerCapturing(
         startIdx: Int,
         hidden: MLXArray,
@@ -184,8 +186,12 @@ public class Qwen3InspModelInner: Module {
         captureAt: [Int]
     ) -> (finalHidden: MLXArray, captures: [MLXArray]) {
         var h = hidden
-        // Build attention mask using any layer's cache that exists (they
-        // should all be the same length for layers in [startIdx..])
+        // No layers to run: just norm.
+        if startIdx >= layers.count {
+            precondition(captureAt.isEmpty, "cannot capture when startIdx >= layers.count")
+            return (norm(h), [])
+        }
+        // Build attention mask using the first remaining layer's cache
         let mask = createAttentionMask(h: h, cache: cache?[startIdx])
 
         let captureSet = Set(captureAt)

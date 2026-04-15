@@ -138,14 +138,15 @@ class Qwen3MultiLayer(nn.Module):
         return x, new_k_all, new_v_all
 
 
-def extract_layers_weights(num_layers: int) -> list[dict]:
+def extract_layers_weights(num_layers: int, start_layer: int = 0) -> list[dict]:
     import mlx.core as mx
     from mlx_lm import load as mlx_load
+    end = start_layer + num_layers
     print(f"[extract] loading mlx-community/Qwen3-4B-bf16 and "
-          f"extracting layers 0..{num_layers-1}...", flush=True)
+          f"extracting layers {start_layer}..{end-1}...", flush=True)
     model, _ = mlx_load("mlx-community/Qwen3-4B-bf16")
     out = []
-    for i in range(num_layers):
+    for i in range(start_layer, end):
         ly = model.model.layers[i]
         w = {}
         w["q_proj"] = np.asarray(ly.self_attn.q_proj.weight.astype(mx.float32)).astype(np.float16)
@@ -183,27 +184,33 @@ def load_weights_into_model(model: Qwen3MultiLayer, weights: list[dict]):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--num-layers", type=int, default=5)
+    ap.add_argument("--start-layer", type=int, default=0,
+                    help="Source layer offset into Qwen3-4B (for multi-chunk). "
+                         "K=18 start=0 = chunk 1 (layers 0-17); start=18 = chunk 2 (layers 18-35).")
     ap.add_argument("--state-len", type=int, default=256)
     ap.add_argument("--out-dir", default="/tmp/qwen3_klayers")
     ap.add_argument("--skip-lut6", action="store_true")
     ap.add_argument("--capture-indices", type=str, default="",
-                    help="Comma-separated 0-based layer indices within K to expose (for DFlash captures). E.g. '1' for K>=2, '1,9' for K>=10, '1,9,17' for K>=18.")
+                    help="Comma-separated 0-based layer indices within K to expose (for DFlash captures). E.g. '1' for K>=2, '1,9' for K>=10, '1,9,17' for K>=18. For chunk 2 starting at global layer 18, captures [25, 33] map to local [7, 15].")
     args = ap.parse_args()
 
     K = args.num_layers
+    START = args.start_layer
     capture_indices = tuple(int(x) for x in args.capture_indices.split(",") if x.strip())
     if capture_indices:
-        print(f"[config] capture at local indices {capture_indices}")
+        print(f"[config] start={START} K={K}, capture at local indices {capture_indices}")
         for idx in capture_indices:
             assert idx < K, f"capture {idx} out of range for K={K}"
     L = 16  # block_size
     STATE = args.state_len
-    out_dir = Path(args.out_dir) / f"K{K}"
+    # Include start in dir name when > 0 so different chunks don't collide
+    subdir = f"K{K}" if START == 0 else f"K{K}_s{START}"
+    out_dir = Path(args.out_dir) / subdir
     out_dir.mkdir(exist_ok=True, parents=True)
 
-    print(f"[config] K={K} layers, state={STATE}, block_size={L}")
+    print(f"[config] start={START}, K={K} layers, state={STATE}, block_size={L}")
 
-    weights = extract_layers_weights(K)
+    weights = extract_layers_weights(K, start_layer=START)
 
     model = Qwen3MultiLayer(K, capture_indices=capture_indices).eval().to(torch.float16)
     load_weights_into_model(model, weights)
