@@ -86,6 +86,9 @@ struct DFlashSDRunner: AsyncParsableCommand {
     @Option(help: "Comma-separated 0-based indices within chunk 2 (local to chunk 2's 0..K2-1) to expose as captures.")
     var aneTargetCaptures2: String = ""
 
+    @Option(help: "Optional CoreML .mlmodelc for target-side lm_head with bs=16 input. When set, target_verify skips MLX lm_head and does MLX norm + ANE lm_head + host argmax instead.")
+    var aneTargetLmhead: String = ""
+
     func run() async throws {
         let profiler = Profiler()
         profiler.begin("total_wall")
@@ -192,6 +195,24 @@ struct DFlashSDRunner: AsyncParsableCommand {
             aneCaptureIndices2 = []
         }
         let aneTargetK2 = self.aneTargetK2
+
+        // Optional: target-side ANE lm_head (bs=16, different from draft's bs=15 lm_head)
+        let aneTargetLmHeadBox: MLModelBox?
+        if !self.aneTargetLmhead.isEmpty {
+            if !self.json { print("[sd] loading ANE target lm_head \(self.aneTargetLmhead)...") }
+            let mlconfig = MLModelConfiguration()
+            mlconfig.computeUnits = .cpuAndNeuralEngine
+            let tLoad = CFAbsoluteTimeGetCurrent()
+            let m = try MLModel(contentsOf: URL(fileURLWithPath: self.aneTargetLmhead),
+                                 configuration: mlconfig)
+            aneTargetLmHeadBox = MLModelBox(model: m)
+            if !self.json {
+                print(String(format: "[sd] ANE target lm_head loaded in %.2fs",
+                             CFAbsoluteTimeGetCurrent() - tLoad))
+            }
+        } else {
+            aneTargetLmHeadBox = nil
+        }
 
         // Run inside the container's context
         try await container.perform { context in
@@ -337,8 +358,9 @@ struct DFlashSDRunner: AsyncParsableCommand {
                 let verifyIds = [Int32(last)] + draftTokenArray
                 let verifyInput = MLXArray(verifyIds).reshaped([1, verifyIds.count])
 
-                // Hybrid paths: chunked (ANE K + ANE K2 + MLX lm_head) or single-chunk (ANE K + MLX rest).
-                let verifyLogits: MLXArray
+                // Hybrid paths: chunked (ANE K + ANE K2 + [ANE or MLX] lm_head) or single-chunk (ANE K + MLX rest).
+                // We produce targetTokenArray [Int] of length bs directly, plus verifyCaptures for next cycle.
+                let targetTokenArray: [Int]
                 let verifyCaptures: [MLXArray]
                 var aneNewK: MLMultiArray? = nil
                 var aneNewV: MLMultiArray? = nil
@@ -367,29 +389,63 @@ struct DFlashSDRunner: AsyncParsableCommand {
                     } else {
                         aneOut2 = nil
                     }
-
-                    // Pick the hidden to hand to MLX (after chunk 2 if present, else after chunk 1)
                     let finalANEHidden = aneOut2?.hidden ?? aneOut.hidden
 
-                    profiler.begin("tv_coreml_to_mlx")
-                    let hiddenAfterKFp16 = try self.mlMultiArrayToMLX(finalANEHidden)
-                    let hiddenAfterK = hiddenAfterKFp16.asType(.bfloat16)
-                    profiler.end("tv_coreml_to_mlx")
-
-                    // Start index for remaining MLX layers
-                    let mlxStartIdx = aneTargetK + aneTargetK2  // 18 + 0 = 18 (single chunk) or 18 + 18 = 36 (full)
-                    profiler.begin("tv_mlx_layers")
+                    let mlxStartIdx = aneTargetK + aneTargetK2  // 18 or 36
                     let mlxCaptureAt = captureIndices.filter { $0 >= mlxStartIdx }
-                    let (logits, mlxCaptures) = model.forwardFromLayerCapturing(
-                        startIdx: mlxStartIdx, hidden: hiddenAfterK,
-                        cache: targetCache, captureAt: mlxCaptureAt)
-                    logits.asArray(Float.self)
-                    profiler.end("tv_mlx_layers")
 
-                    // Assemble captures. Priority order from captureIndices:
-                    //   - If idx < aneTargetK: from chunk 1's capture output
-                    //   - If aneTargetK <= idx < aneTargetK + aneTargetK2: from chunk 2's capture output (local idx = idx - aneTargetK)
-                    //   - If idx >= aneTargetK + aneTargetK2: from MLX captures
+                    // Decide how to produce target logits/tokens:
+                    //   (a) ANE target lm_head (if provided, skip MLX lm_head entirely)
+                    //   (b) MLX forwardFromLayerCapturing (original: norm + lm_head)
+                    var mlxCapturesArr: [MLXArray] = []
+                    if let aneTargetLmHead = aneTargetLmHeadBox?.model, mlxStartIdx == 36 {
+                        // MLX norm only, then ANE lm_head, then host argmax.
+                        profiler.begin("tv_coreml_to_mlx")
+                        let hiddenFp16 = try self.mlMultiArrayToMLX(finalANEHidden)
+                        let hiddenBf16 = hiddenFp16.asType(.bfloat16)
+                        profiler.end("tv_coreml_to_mlx")
+
+                        profiler.begin("tv_mlx_norm")
+                        let normed = model.model.applyNorm(hiddenBf16)
+                        normed.asArray(Float.self)
+                        profiler.end("tv_mlx_norm")
+
+                        profiler.begin("tv_mlx_to_coreml")
+                        let normedMLArr = try self.mlxToMLMultiArray(normed)
+                        profiler.end("tv_mlx_to_coreml")
+
+                        profiler.begin("tv_ane_lmhead")
+                        let features = try MLDictionaryFeatureProvider(
+                            dictionary: ["hidden": MLFeatureValue(multiArray: normedMLArr)])
+                        let result = try await aneTargetLmHead.prediction(from: features)
+                        guard let logitsArr = result.featureValue(for: "logits")?.multiArrayValue else {
+                            throw NSError(domain: "dflash-sd", code: 5,
+                                           userInfo: [NSLocalizedDescriptionKey: "missing target lm_head logits"])
+                        }
+                        let tokens = hostArgmaxFp16(logitsArr, L: bs,
+                                                     V: logitsArr.shape[2].intValue)
+                        targetTokenArray = tokens.map { Int($0) }
+                        profiler.end("tv_ane_lmhead")
+                        // No MLX captures when startIdx=36
+                    } else {
+                        // MLX norm + lm_head + optional remaining layers
+                        profiler.begin("tv_coreml_to_mlx")
+                        let hiddenFp16 = try self.mlMultiArrayToMLX(finalANEHidden)
+                        let hiddenBf16 = hiddenFp16.asType(.bfloat16)
+                        profiler.end("tv_coreml_to_mlx")
+
+                        profiler.begin("tv_mlx_layers")
+                        let (logits, mlxCaptures) = model.forwardFromLayerCapturing(
+                            startIdx: mlxStartIdx, hidden: hiddenBf16,
+                            cache: targetCache, captureAt: mlxCaptureAt)
+                        logits.asArray(Float.self)
+                        let targetTokens = logits.argMax(axis: -1)
+                        targetTokenArray = targetTokens.asArray(Int32.self).map { Int($0) }
+                        profiler.end("tv_mlx_layers")
+                        mlxCapturesArr = mlxCaptures
+                    }
+
+                    // Assemble captures from chunks + optional MLX
                     var byIndex = [Int: MLXArray]()
                     let chunk1Layers = captureIndices.filter { $0 < aneTargetK }
                     let chunk2Layers = captureIndices.filter { $0 >= aneTargetK && $0 < aneTargetK + aneTargetK2 }
@@ -415,24 +471,20 @@ struct DFlashSDRunner: AsyncParsableCommand {
                         }
                     }
                     for (i, layer) in mlxCaptureAt.enumerated() {
-                        byIndex[layer] = mlxCaptures[i]
+                        byIndex[layer] = mlxCapturesArr[i]
                     }
                     verifyCaptures = captureIndices.map { byIndex[$0]! }
-                    verifyLogits = logits
                 } else {
                     // Standard full-MLX path
                     let (logits, caps) = model.forwardCapturing(
                         verifyInput, cache: targetCache, captureAt: captureIndices
                     )
                     logits.asArray(Float.self)
-                    verifyLogits = logits
+                    let targetTokens = logits.argMax(axis: -1)
+                    targetTokenArray = targetTokens.asArray(Int32.self).map { Int($0) }
                     verifyCaptures = caps
                 }
                 profiler.end("target_verify")
-
-                // Sample target tokens
-                let targetTokens = verifyLogits.argMax(axis: -1)
-                let targetTokenArray = targetTokens.asArray(Int32.self).map { Int($0) }
 
                 // Compare draft_tokens vs target_tokens[0..bs-2] to find first mismatch
                 profiler.begin("accept_check")

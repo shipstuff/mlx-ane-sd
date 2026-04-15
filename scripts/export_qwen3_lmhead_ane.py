@@ -120,41 +120,37 @@ def convert_and_quantize(weight: np.ndarray, block_size_out: int, out_dir: Path)
     return lut6_mlmodelc
 
 
-def quality_check(lut6_mlmodelc: Path, weight: np.ndarray, n_samples: int = 20):
-    """Compare ANE LUT6 top-1 argmax to MLX fp32 reference on random hiddens.
+def quality_check(lut6_mlmodelc: Path, weight: np.ndarray, n_samples: int = 20,
+                   block_size: int = 15):
+    """Compare ANE LUT6 top-1 argmax to fp32 reference on random hiddens.
 
     Returns (agreement_rate, mean_top5_overlap).
     """
-    print(f"\n[quality] running {n_samples} random inputs...")
+    print(f"\n[quality] running {n_samples} random inputs at bs={block_size}...")
     model = ct.models.CompiledMLModel(str(lut6_mlmodelc), ct.ComputeUnit.CPU_AND_NE)
 
-    # Use fp32 reference (unpalettized)
     V, H = weight.shape
     w_f32 = weight.astype(np.float32)
-    # Scale down so logits don't explode; weights from real Qwen3-4B are ~0.02 std
-    scale = 1.0
 
     agreements = []
     top5_overlaps = []
     for trial in range(n_samples):
         np.random.seed(trial)
-        hidden = np.random.randn(1, 15, H).astype(np.float16) * 0.5  # realistic range for hidden
+        hidden = np.random.randn(1, block_size, H).astype(np.float16) * 0.5
 
-        # Reference: fp32 matmul + argmax
         h_f32 = hidden.astype(np.float32)
-        logits_ref = h_f32 @ w_f32.T  # [1, 15, V]
-        argmax_ref = np.argmax(logits_ref, axis=-1)[0]  # [15]
-        top5_ref = np.argsort(logits_ref[0], axis=-1)[:, -5:]  # [15, 5]
+        logits_ref = h_f32 @ w_f32.T
+        argmax_ref = np.argmax(logits_ref, axis=-1)[0]
+        top5_ref = np.argsort(logits_ref[0], axis=-1)[:, -5:]
 
-        # ANE LUT6
         out = model.predict({"hidden": hidden})
         logits_ane = out["logits"].astype(np.float32)
-        argmax_ane = np.argmax(logits_ane, axis=-1)[0]  # [15]
+        argmax_ane = np.argmax(logits_ane, axis=-1)[0]
         top5_ane = np.argsort(logits_ane[0], axis=-1)[:, -5:]
 
         agreement = (argmax_ref == argmax_ane).mean()
         top5_overlap = np.mean([
-            len(set(top5_ref[i]) & set(top5_ane[i])) / 5.0 for i in range(15)
+            len(set(top5_ref[i]) & set(top5_ane[i])) / 5.0 for i in range(block_size)
         ])
         agreements.append(agreement)
         top5_overlaps.append(top5_overlap)
@@ -172,6 +168,8 @@ def main():
     ap.add_argument("--out-dir", default="/tmp/lmhead_qwen3")
     ap.add_argument("--skip-extract", action="store_true",
                     help="Skip weight extraction (use cached /tmp/qwen3_lmhead_weight.npy)")
+    ap.add_argument("--block-size-out", type=int, default=15,
+                    help="Number of positions to project (15 for draft's last-15; 16 for target_verify's full block)")
     args = ap.parse_args()
 
     cache = Path("/tmp/qwen3_lmhead_weight.npy")
@@ -186,9 +184,11 @@ def main():
     print(f"\n[weight] shape={weight.shape} dtype={weight.dtype} "
           f"range=[{weight.min():.4f}, {weight.max():.4f}] std={weight.std():.4f}")
 
-    out_dir = Path(args.out_dir)
-    lut6_mlmodelc = convert_and_quantize(weight, block_size_out=15, out_dir=out_dir)
-    quality_check(lut6_mlmodelc, weight, n_samples=20)
+    # Output dir disambiguated by bs when != 15 to avoid overwriting the draft-bs-15 artifact
+    base_out = Path(args.out_dir)
+    out_dir = base_out if args.block_size_out == 15 else base_out / f"bs{args.block_size_out}"
+    lut6_mlmodelc = convert_and_quantize(weight, block_size_out=args.block_size_out, out_dir=out_dir)
+    quality_check(lut6_mlmodelc, weight, n_samples=20, block_size=args.block_size_out)
 
     print(f"\n[done] LUT6 model at {lut6_mlmodelc}")
 

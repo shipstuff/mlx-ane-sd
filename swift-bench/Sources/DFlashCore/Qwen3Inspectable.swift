@@ -212,6 +212,12 @@ public class Qwen3InspModelInner: Module {
     public func embed(_ inputs: MLXArray) -> MLXArray {
         return embedTokens(inputs)
     }
+
+    /// Apply the final RMSNorm only (for use when all 36 layers ran on ANE
+    /// and we still need norm before a separate lm_head call).
+    public func applyNorm(_ hidden: MLXArray) -> MLXArray {
+        return norm(hidden)
+    }
 }
 
 public class Qwen3InspModel: Module, LLMModel, KVCacheDimensionProvider {
